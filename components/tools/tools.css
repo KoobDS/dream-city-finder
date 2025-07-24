@@ -1,0 +1,77 @@
+div.tools-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+/* "Where to Live" and "Where to Visit" Tool Selection Buttons */
+button.tools-select-btn {
+    width: 50%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    overflow: hidden;
+    border: none;
+    background-color: transparent;
+    transition: width 0.75s ease;
+}
+button.tools-select-btn:hover {
+    cursor: pointer;
+}
+button.tools-select-btn:nth-of-type(1) {
+    left: 0;
+    border-right: 1.5px solid #DBE4EE;
+}
+button.tools-select-btn:nth-of-type(2) {
+    right: 0;
+    border-left: 1.5px solid #DBE4EE;
+}
+button.tools-select-btn img {
+    min-width: 100vw;
+    min-height: 100%;
+    position: absolute;
+    top: 0;
+    transition: transform 0.5s;
+}
+button.tools-select-btn:hover img {
+    transform: scale(1.1,1.1);
+}
+button.tools-select-btn:nth-of-type(1) img { left: 0; }
+button.tools-select-btn:nth-of-type(2) img { right: 0; }
+button.tools-select-btn h1 {
+    width: 40vw;
+    font-size: 8vw;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -65%);
+    font-family: var(--font-primary);
+    color: #DBE4EE;
+}
+button.tools-select-btn h1 span {
+    font-size: 4vw;
+}
+
+/* Tool Container */
+section {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    transform: translateY(100%);
+    background-color: #154977;
+    color: #DBE4EE;
+    transition: transform 0.75s;
+    display: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 3; /* above tool selection buttons */
+}
+
+section#whereToVisit h1 {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}

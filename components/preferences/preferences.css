@@ -1,0 +1,208 @@
+div.preferences-container {
+    width: 850px;
+    height: auto;
+    margin: 20px auto;
+    padding: 10px 20px 20px 20px;
+}
+
+div#preferences-categories-container div.container {
+  margin-top: 10px;
+  text-align: center;
+}
+
+button.preferences-category {
+    width: 250px;
+    height: 80px;
+    margin: 10px 5px;
+    background-color: #1C77C3;
+    border: none;
+    display: inline-block;
+    box-shadow: 0 5px 10px 0 rgba(0,0,0,0.2), 0 5px 15px 0 rgba(0,0,0,0.19);
+    transition: background-color 0.25s;
+    vertical-align: top;
+
+    font-size: 1.5em;
+    font-family: var(--font-primary);
+    color: #DBE4EE;
+}
+
+button.preferences-category:hover {
+  background-color: #2c8bdb;
+  cursor: pointer;
+}
+
+h1 {
+  font-size: 3em;
+}
+
+div#preferences-rating-container {
+    display: none;  /* Categories shown by default */
+}
+
+div#response-rows {
+  max-height: calc(100vh - 275px);
+  overflow-y: auto;
+  margin-top: 20px;
+}
+
+div.response-row {
+  width: 100%;
+  height: auto;
+  background-color: #1C77C3;
+  border-bottom: 1px solid #DBE4EE;
+}
+div.response-row:last-of-type {
+  border-bottom: none;
+}
+
+div.response-row div.text {
+  width: calc(49% - 20px); /* Subtract 10px padding (below) */
+  height: auto;
+  padding: 10px;
+  display: inline-block;
+  vertical-align: top;
+}
+
+div.response-row div.text p {
+  font-size: 1.5em;
+}
+
+div.response-row div.right-side {
+  height: 100%;
+  width: 49%;
+  height: auto;
+  display: inline-block;
+  text-align: center;
+}
+
+div.preferences-rating-labels {
+    width: 100%;
+}
+
+div.preferences-buttons {
+    width: 100%;
+    text-align: center;
+}
+
+div.response-row div.right-side div.labels {
+  width: 100%;
+  margin: 10px 0;
+  text-align: left;
+}
+
+/* Style for the labels 'Not Important' and 'Very Important' */
+div.response-row div.right-side div.labels p {
+  font-size: 1.5em;
+  display: inline-block; /* Ensures the labels are on the same line */
+}
+
+/* Specific styling for the last label ('Very Important') */
+/* Other label is on left by default */
+div.response-row div.right-side div.labels p:last-child {
+  float: right;
+}
+
+div.response-row div.right-side div.buttons {
+  margin-bottom: 10px; /* Matching margin-top of labels container */
+}
+
+div.response-row div.right-side input[type="radio"] {
+  width: 17.5px;
+  height: 17.5px;
+  margin: 0 22.5px;
+  accent-color: #DB5461;
+}
+div.response-row div.right-side input[type="radio"]:hover {
+  cursor: pointer;
+}
+
+div.preferences-buttons {
+  position: relative;
+}
+
+div.preferences-buttons button.primary {
+  font-size: 2em;
+  padding: 5px 15px;
+  margin-top: 20px;
+}
+
+button#backBtn {
+  display: none; /* Only show when category selected */
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+/* Back arrow icon */
+button#backBtn i {
+  font-size: 0.8em;
+  margin-right: 5px;
+}
+
+div.slider-container {
+  margin: 10px 0 15px 0;
+}
+p.slider-value {
+  font-size: 1.5em;
+}
+/* Reference: https://stackoverflow.com/questions/18389224/how-to-style-html5-range-input-to-have-different-color-before-and-after-slider */
+/* Chrome */
+input[type='range'] {
+  overflow: hidden;
+  width: 300px;
+  -webkit-appearance: none;
+  background-color: #DBE4EE;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 10px;
+  -webkit-appearance: none;
+  color: #DB5461;
+  margin-top: -1px;
+}
+input[type='range']::-webkit-slider-thumb {
+  width: 10px;
+  -webkit-appearance: none;
+  height: 10px;
+  cursor: ew-resize;
+  background: #a1303b;
+  box-shadow: -300px 0 0 300px #DB5461;
+}
+/* Firefox */
+input[type="range"]::-moz-range-progress {
+background-color: #DB5461; 
+}
+input[type="range"]::-moz-range-track {  
+background-color: #DBE4EE;
+}
+/* IE */
+input[type="range"]::-ms-fill-lower {
+background-color: #DB5461; 
+}
+input[type="range"]::-ms-fill-upper {  
+background-color: #DBE4EE;
+}
+
+
+
+
+/* .slider {
+
+  width: 100%;
+  height: 25px;
+  background: #DB5461;
+  outline: none;
+}
+/* The slider handle (use -webkit- (Chrome, Opera, Safari, Edge) and -moz- (Firefox) to override default look) */
+/* .slider::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Override default look */
+  /* appearance: none;
+  width: 25px;
+  height: 25px;
+  background: #DB5461;
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 25px;
+  height: 25px;
+  background: #DB5461;
+  cursor: pointer;
+} */

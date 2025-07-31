@@ -1,5 +1,5 @@
 """
-City-recommendation engine, web-ready version of algorithms/Suggestion_Algorithm.ipynb
+City-recommendation engine, web-ready version of algo found in development
 
 `df_raw` : master CSV of city metrics
 `suggest_top_cities(prefs, n)` : return best-matching city names

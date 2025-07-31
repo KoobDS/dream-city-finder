@@ -1,5 +1,5 @@
 """
-Trip-planner core, web-ready version of algorithms/Suggestion_Algorithm.ipynb (no plotting or Cartopy).
+Trip-planner core, web-ready version of algo found in development
 
 solve_trip(home, stops)  ->  {"order": [...], "coordinates": {city: (lat, lon)} }
 """

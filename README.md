@@ -42,7 +42,7 @@ All data are up to date as of 2024, with source links at the bottom of this docu
 ## Division of work (2024 Capstone):
 
 | Name | Key contributions |
-|------|---------|-------------------|
+|------|---------|
 | Benjamin Koob (me) | Data collection/engineering, Recommendation algorithm, Trip mapper algorithm (prior to capstone), Web/algorithm improvements (since capstone) |
 | Jovan Yoshioka | Data collection/engineering, Web app development |
 | Arwen Roach | Data collection/engineering, PCA analysis |

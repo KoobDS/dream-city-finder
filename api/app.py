@@ -1,34 +1,39 @@
 import os
+from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
+from suggestion_algo import suggest_top_cities
+from trip_mapper     import solve_trip
 
-# local-only .env
-load_dotenv()
+load_dotenv()                                # reads local .env
 
-# re-use notebooks-to-scripts
-from suggestion_algo import suggest_top_cities           # wrap in a func
-from trip_mapper import solve_trip                       # wrap in a func
+# (A)  serve SPA from repo-root, not “…/”
+#       – works for `flask run` and Render
+ROOT = Path(__file__).resolve().parent.parent      # repo root
+app  = Flask(__name__, static_folder=str(ROOT), static_url_path="")
 
-app = Flask(__name__, static_folder="../")   # serve index.html too
-CORS(app)
+# (B)  lock CORS to front-end URLs
+ALLOWED = [
+    "https://<username>.github.io",
+    "https://KoobDS.github.io/dream-city-finder",
+    "http://localhost:5000", "http://127.0.0.1:5000"
+]
+CORS(app, resources={r"/api/*": {"origins": ALLOWED}})
 
+# ------------------------- API routes ----------------------------- #
 @app.post("/api/suggest")
 def suggest():
-    data = request.json        # {preferences: {...}}
-    top5 = suggest_top_cities(data["preferences"])
-    return jsonify({"top": top5})
+    prefs = request.json["preferences"]           # {feature: slider}
+    return jsonify(top=suggest_top_cities(prefs))
 
 @app.post("/api/route")
 def route():
-    data = request.json        # {"home": "...", "stops": ["...", ...]}
-    trip = solve_trip(data["home"], data["stops"])
-    return jsonify(trip)
+    data = request.json                           # {home, stops}
+    return jsonify(solve_trip(data["home"], data["stops"]))
 
-# OPTIONAL: serve the single-page app so `flask run` works out-of-the-box
+# ------------------  SPA fallback (index.html) -------------------- #
 @app.get("/", defaults={"path": ""})
 @app.get("/<path:path>")
 def spa(path):
-    if (p := os.path.join(app.static_folder, "index.html")):
-        return send_from_directory(os.path.dirname(p), os.path.basename(p))
-    return "Not found", 404
+    return send_from_directory(ROOT, "index.html")

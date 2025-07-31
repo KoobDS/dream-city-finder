@@ -6,8 +6,11 @@ toolsTemplate.innerHTML = `
   <link rel="stylesheet" type="text/css" href="assets/fontawesome-6.5.2/css/all.min.css">
   <link rel="stylesheet" type="text/css" href="css/global.css">
   <link rel="stylesheet" type="text/css" href="components/tools/tools.css">
-  
+
   <script src="components/preferences/preferences.js" type="text/javascript" defer></script>
+
+  <!-- NEW: trip-planner script -->
+  <script src="components/trip-planner/trip-planner.js" type="text/javascript" defer></script>
 
   <div class="tools-container">
     <!-- Tool selection buttons -->
@@ -16,10 +19,10 @@ toolsTemplate.innerHTML = `
       <div class="tint"></div>
       <h1><span>Where to...</span><br/>Live</h1>
     </button>
-    <button id="whereToVisitBtn" class="tools-select-btn" onclick="selectTool(this)">
-      <img src="assets/beach.jpg" />
+    <button id="tripPlannerBtn" class="tools-select-btn" onclick="selectTool(this)">
+      <img src="assets/aerial.jpg" />
       <div class="tint"></div>
-      <h1><span>Where to...</span><br/>Visit</h1>
+      <h1><span>Plan a...</span><br/>Trip</h1>
     </button>
 
     <!-- Where to Live -->
@@ -27,9 +30,9 @@ toolsTemplate.innerHTML = `
       <preferences-component></preferences-component>
     </section>
 
-    <!-- Where to Visit -->
-    <section id="whereToVisit">
-      <h1>This is currently unavailable.</h1>
+    <!-- Trip Planner -->
+    <section id="tripPlanner">
+      <trip-planner-component></trip-planner-component>
     </section>
   </div>
 `;

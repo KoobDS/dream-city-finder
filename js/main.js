@@ -8,7 +8,7 @@
   /* Detect where the SPA is running
      ─────────────────────────────── */
   const API_BASE = location.hostname.includes('github.io')
-    ? 'https://cityfinder-api.onrender.com'   // ← replace with your Render URL
+    ? 'https://dream-city-finder.onrender.com'   // ← replace with your Render URL
     : '';                                     // dev: same-origin Flask
 
   window.API_BASE = API_BASE;                 // global for fetch() calls

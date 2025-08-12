@@ -36,4 +36,4 @@ def route():
 @app.get("/", defaults={"path": ""})
 @app.get("/<path:path>")
 def spa(path):
-    return send_from_directory(ROOT, "index.html")
+    return send_from_directory(app.static_folder, "index.html")

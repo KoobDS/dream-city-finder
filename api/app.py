@@ -9,9 +9,10 @@ from trip_mapper     import solve_trip
 load_dotenv()                                # reads local .env
 
 # (A)  serve SPA from repo-root, not “…/”
-#       – works for `flask run` and Render
-ROOT = Path(__file__).resolve().parent.parent      # repo root
-app  = Flask(__name__, static_folder=str(ROOT), static_url_path="")
+ROOT  = Path(__file__).resolve().parents[1]
+FRONT = ROOT / "CityFinder"
+app = Flask(__name__, static_folder=str(ROOT), static_url_path="")  # serve /components, /assets, etc. at root
+
 
 # (B)  lock CORS to front-end URLs
 ALLOWED = [

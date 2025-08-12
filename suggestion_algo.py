@@ -22,17 +22,37 @@ FEATURE_CFG_CSV  = BASE / "feature_handling.csv"
 # ─────────────────────────────────────────────────────────────────────
 # 2. Load at import
 # ─────────────────────────────────────────────────────────────────────
-# master metrics
+
 df_master = pd.read_csv(MASTER_CSV, index_col=False)
 
-# PCA loadings, expected columns: Variable, Loading
-df_pca       = pd.read_csv(PCA_CSV)
-PCA_SCORES   = dict(zip(df_pca["Variable"], df_pca["Loading"]))
+# Robust PCA loader for 1-row-wide files
+df_pca = pd.read_csv(PCA_CSV)
+row = df_pca.iloc[0]
+row_num = pd.to_numeric(row, errors="coerce")
 
-# feature-handling table:
-# Columns: Variable, Handling (Normal scale, 'Goldilocks'),
-#          Inversion (Y/N), User Facing Name, Note
-df_cfg = pd.read_csv(FEATURE_CFG_CSV)
+# Keep only features that actually exist in the master dataset and have numeric loadings
+PCA_SCORES = {
+    col: float(val)
+    for col, val in row_num.items()
+    if pd.notna(val) and col in df_master.columns
+}
+
+# Feature handling table (tolerate blanks)
+df_cfg = pd.read_csv(FEATURE_CFG_CSV).fillna("")
+
+VAR_COL      = "Variable"
+HANDLING_COL = "Handling (Normal scale, 'Goldilocks')"
+INV_COL      = "Inversion (Y/N)"
+
+drop_vars = (
+    df_cfg[df_cfg[HANDLING_COL].str.strip().str.lower().str.startswith("obs")][VAR_COL].tolist()
+)
+invert_vars = (
+    df_cfg[df_cfg[INV_COL].str.strip().str.upper() == "Y"][VAR_COL].tolist()
+)
+gold_vars = (
+    df_cfg[df_cfg[HANDLING_COL].str.strip().str.lower() == "gold"][VAR_COL].tolist()
+)
 
 # ─────────────────────────────────────────────────────────────────────
 # 3. Derive drop/invert/gold lists

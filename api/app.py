@@ -1,40 +1,86 @@
-import os
-from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
-from dotenv import load_dotenv
+from pathlib import Path
+import logging
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+
+app = Flask(__name__, static_folder=None)
+CORS(app)
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("cityfinder")
+
+# ─────────────────────────────────────────────────────────
+# API first
+# ─────────────────────────────────────────────────────────
 from suggestion_algo import suggest_top_cities
-from trip_mapper     import solve_trip
+from trip_mapper import build_route
 
-load_dotenv()                                # reads local .env
-
-# (A)  serve SPA from repo-root, not “…/”
-ROOT  = Path(__file__).resolve().parents[1]
-FRONT = ROOT / "CityFinder"
-app = Flask(__name__, static_folder=str(ROOT), static_url_path="")  # serve /components, /assets, etc. at root
-
-
-# (B)  lock CORS to front-end URLs
-ALLOWED = [
-    "https://<username>.github.io",
-    "https://KoobDS.github.io/dream-city-finder",
-    "http://localhost:5000", "http://127.0.0.1:5000"
-]
-CORS(app, resources={r"/api/*": {"origins": ALLOWED}})
-
-# ------------------------- API routes ----------------------------- #
 @app.post("/api/suggest")
-def suggest():
-    prefs = request.json["preferences"]           # {feature: slider}
-    return jsonify(top=suggest_top_cities(prefs))
+def api_suggest():
+    payload = request.get_json(silent=True) or {}
+    prefs = payload.get("preferences") or {}
+    top = int(payload.get("top", 10))
+    results = suggest_top_cities(prefs, top_n=top)
+
+    suggestions = {}
+    for i, item in enumerate(results, start=1):
+        # normalize item -> (city, state)
+        if isinstance(item, str):
+            if "," in item:
+                city_part, state_part = item.split(",", 1)
+            else:
+                city_part, state_part = item, ""
+        elif isinstance(item, dict):
+            city_part  = (item.get("cityName") or item.get("city_ascii")
+                          or item.get("city") or "")
+            state_part = (item.get("stateName") or item.get("State")
+                          or item.get("state") or "")
+        else:
+            city_part, state_part = str(item), ""
+
+        suggestions[str(i)] = {
+            "cityName": city_part.strip(),
+            "stateName": state_part.strip(),
+            "stateFIPS": "",     # fill later if you wire it up
+            "topFeatures": []    # fill later if needed
+        }
+
+    return jsonify({"suggestions": suggestions})
 
 @app.post("/api/route")
-def route():
-    data = request.json                           # {home, stops}
-    return jsonify(solve_trip(data["home"], data["stops"]))
+def api_route():
+    payload = request.get_json(silent=True) or {}
+    home = payload.get("home", "")
+    stops = payload.get("stops", [])
+    data = build_route(home, stops)
+    return jsonify(data)
 
-# ------------------  SPA fallback (index.html) -------------------- #
-@app.get("/", defaults={"path": ""})
-@app.get("/<path:path>")
-def spa(path):
-    return send_from_directory(app.static_folder, "index.html")
+# ─────────────────────────────────────────────────────────
+# Now static
+# ─────────────────────────────────────────────────────────
+@app.get("/")
+def index():
+    return send_from_directory(ROOT, "index.html")
+
+@app.get("/assets/<path:fn>")
+def assets(fn): return send_from_directory(ROOT / "assets", fn)
+
+@app.get("/css/<path:fn>")
+def css(fn): return send_from_directory(ROOT / "css", fn)
+
+@app.get("/js/<path:fn>")
+def js(fn): return send_from_directory(ROOT / "js", fn)
+
+@app.get("/components/<path:fn>")
+def components(fn): return send_from_directory(ROOT / "components", fn)
+
+@app.get("/city_images/<path:fn>")
+def city_images(fn): return send_from_directory(ROOT / "city_images", fn)
+
+@app.get("/data/<path:fn>")
+def data_files(fn): return send_from_directory(ROOT / "data", fn)
+
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)

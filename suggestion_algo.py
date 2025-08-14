@@ -5,170 +5,203 @@ City-recommendation engine, web-ready version of algo found in development
 `suggest_top_cities(prefs, n)` : return best-matching city names
 """
 
+
 from __future__ import annotations
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Iterable
 
+import numpy as np
 import pandas as pd
 
 # ─────────────────────────────────────────────────────────────────────
-# 1. Point to data CSVs
+# Paths
 # ─────────────────────────────────────────────────────────────────────
 BASE = Path(__file__).parent / "data"
 MASTER_CSV       = BASE / "CityMaster1.9.csv"
-PCA_CSV          = BASE / "PCA_1.3.csv"
+PCA_CSV          = BASE / "PCA_1.3.csv"          # pivoted two-column version
 FEATURE_CFG_CSV  = BASE / "feature_handling.csv"
 
 # ─────────────────────────────────────────────────────────────────────
-# 2. Load at import
+# Load master
 # ─────────────────────────────────────────────────────────────────────
+df_master = pd.read_csv(MASTER_CSV, low_memory=False)
+df = df_master.copy()
 
-df_master = pd.read_csv(MASTER_CSV, index_col=False)
+# ─────────────────────────────────────────────────────────────────────
+# PCA weights (tolerant to header variants)
+# ─────────────────────────────────────────────────────────────────────
+_df_pca = pd.read_csv(PCA_CSV)
 
-# Robust PCA loader for 1-row-wide files
-df_pca = pd.read_csv(PCA_CSV)
-row = df_pca.iloc[0]
-row_num = pd.to_numeric(row, errors="coerce")
+def _pick_header(cands: Iterable[str], cols: Iterable[str]) -> str:
+    norm = {str(c).strip().lower(): c for c in cols}
+    for want in cands:
+        if want in norm:
+            return norm[want]
+    raise KeyError(f"Could not find any of {cands} in PCA columns {list(cols)}")
 
-# Keep only features that actually exist in the master dataset and have numeric loadings
-PCA_SCORES = {
-    col: float(val)
-    for col, val in row_num.items()
-    if pd.notna(val) and col in df_master.columns
+col_feat = _pick_header({"feature", "variable"}, _df_pca.columns)
+col_pc1  = _pick_header({"pc-1", "pc1", "loading"}, _df_pca.columns)
+
+PCA_SCORES: Dict[str, float] = (
+    _df_pca.assign(**{col_feat: _df_pca[col_feat].astype(str).str.strip()})
+           .set_index(col_feat)[col_pc1]
+           .apply(pd.to_numeric, errors="coerce")
+           .dropna()
+           .to_dict()
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# Feature handling config (drop / invert / gold)
+# ─────────────────────────────────────────────────────────────────────
+df_cfg = pd.read_csv(FEATURE_CFG_CSV).fillna("")
+VAR_COL      = "Variable"
+HANDLING_COL = "Handling (Normal scale, 'Goldilocks')"
+INV_COL      = "Inversion (Y/N)"
+
+def _norm_series(s: pd.Series) -> pd.Series:
+    return s.astype(str).str.strip().str.lower()
+
+drop_vars: List[str] = []
+invert_vars: List[str] = []
+gold_vars: List[str] = []
+
+if all(c in df_cfg.columns for c in [VAR_COL, HANDLING_COL, INV_COL]):
+    drop_vars = df_cfg[_norm_series(df_cfg[HANDLING_COL]).str.startswith("obs")][VAR_COL].astype(str).tolist()
+    invert_vars = df_cfg[_norm_series(df_cfg[INV_COL]).eq("y")][VAR_COL].astype(str).tolist()
+    gold_vars = df_cfg[_norm_series(df_cfg[HANDLING_COL]).eq("gold")][VAR_COL].astype(str).tolist()
+
+# ─────────────────────────────────────────────────────────────────────
+# Column resolution / synthesis
+# ─────────────────────────────────────────────────────────────────────
+ALIASES: Dict[str, Iterable[str]] = {
+    "time_zone_C": ["time_zone_CM", "time_zone_CE"],  # synthesize Central from CM/CE when needed
 }
 
-# Feature handling table (tolerate blanks)
-df_cfg = pd.read_csv(FEATURE_CFG_CSV).fillna("")
+def _resolve_col(name: str, frame: pd.DataFrame) -> str | None:
+    """Return a column present in frame for 'name', using ALIASES if needed.
+       If two alias parts exist, synthesize 'name' as their mean."""
+    if name in frame.columns:
+        return name
+    if name in ALIASES:
+        opts = [c for c in ALIASES[name] if c in frame.columns]
+        if len(opts) == 1:
+            frame[name] = frame[opts[0]]
+            return name
+        if len(opts) >= 2:
+            frame[name] = frame[opts].mean(axis=1, skipna=True)
+            return name
+    return None
 
-VAR_COL      = "Variable"
-HANDLING_COL = "Handling (Normal scale, 'Goldilocks')"
-INV_COL      = "Inversion (Y/N)"
+# Ensure synthesized columns up-front
+_ = _resolve_col("time_zone_C", df)
 
-drop_vars = (
-    df_cfg[df_cfg[HANDLING_COL].str.strip().str.lower().str.startswith("obs")][VAR_COL].tolist()
-)
-invert_vars = (
-    df_cfg[df_cfg[INV_COL].str.strip().str.upper() == "Y"][VAR_COL].tolist()
-)
-gold_vars = (
-    df_cfg[df_cfg[HANDLING_COL].str.strip().str.lower() == "gold"][VAR_COL].tolist()
-)
-
-# ─────────────────────────────────────────────────────────────────────
-# 3. Derive drop/invert/gold lists
-# ─────────────────────────────────────────────────────────────────────
-VAR_COL      = "Variable"
-HANDLING_COL = "Handling (Normal scale, 'Goldilocks')"
-INV_COL      = "Inversion (Y/N)"
-
-# drop anything marked obsolete (case-insensitive startswith 'obs')
-drop_vars = (
-    df_cfg[df_cfg[HANDLING_COL]
-           .str.strip()
-           .str.lower()
-           .str.startswith("obs")][VAR_COL]
-    .tolist()
-)
-
-# invert those flagged 'Y'
-invert_vars = (
-    df_cfg[df_cfg[INV_COL]
-           .str.strip()
-           .str.upper() == "Y"][VAR_COL]
-    .tolist()
-)
-
-# gold-zone variables
-gold_vars = (
-    df_cfg[df_cfg[HANDLING_COL]
-           .str.strip()
-           .str.lower() == "gold"][VAR_COL]
-    .tolist()
-)
+# time_zone_other = not ET/CT/MT/PT
+if "time_zone_other" not in df.columns:
+    core = ["time_zone_E", "time_zone_C", "time_zone_M", "time_zone_P"]
+    if set(core).issubset(df.columns):
+        df["time_zone_other"] = (1.0 - df[core].sum(axis=1)).clip(lower=0.0)
 
 # ─────────────────────────────────────────────────────────────────────
-# 4. Core scoring helpers
+# Normalization (min–max) and inversion
 # ─────────────────────────────────────────────────────────────────────
-def _row_score(
-    row: pd.Series,
-    rel_weights: Dict[str, Union[float, Dict[str, float]]],
-    gold_ranges: Dict[str, float],
-) -> float:
-    """Score one city given combined relevance weights."""
+def _minmax(s: pd.Series) -> pd.Series:
+    s = pd.to_numeric(s, errors="coerce")
+    mn, mx = s.min(skipna=True), s.max(skipna=True)
+    if pd.isna(mn) or pd.isna(mx) or mx == mn:
+        return pd.Series(np.zeros(len(s)), index=s.index)
+    return (s - mn) / (mx - mn)
+
+df_norm = df.copy()
+for c in df_norm.columns:
+    if pd.api.types.is_numeric_dtype(df_norm[c]):
+        df_norm[c] = _minmax(df_norm[c])
+
+# Invert “bad is high” features after normalization
+for v in invert_vars:
+    if v in df_norm.columns:
+        df_norm[v] = 1.0 - df_norm[v]
+
+# Gold ranges from raw (non-normalized) values
+gold_ranges: Dict[str, float] = {}
+for v in gold_vars:
+    if v in df.columns:
+        series = pd.to_numeric(df[v], errors="coerce")
+        rng = series.max(skipna=True) - series.min(skipna=True)
+        gold_ranges[v] = float(rng) if pd.notna(rng) and rng > 0 else 0.0
+
+# ─────────────────────────────────────────────────────────────────────
+# Scoring
+# ─────────────────────────────────────────────────────────────────────
+def _row_score(idx: int, prefs: Dict[str, Union[int, float, str]]) -> float:
     total = 0.0
-    for var, w in rel_weights.items():
-        if var not in row or w == 0:
-            continue
-        val = row[var]
-        if var in gold_ranges:
-            # w is {"ideal":..., "pca":...}
-            ideal, pca_w = w["ideal"], w["pca"]
-            diff = abs(val - ideal)
-            scale = gold_ranges[var]
-            score = 1 - (diff / scale) if scale > 0 else 0
-            total += score * pca_w
+
+    for var, pca_w in PCA_SCORES.items():
+        # Wire up columns (synthesizing when possible)
+        col_norm = _resolve_col(var, df_norm)
+        if col_norm is None:
+            continue  # skip unknown features
+
+        raw_pref = prefs.get(var, 0)
+        try:
+            user_val = float(raw_pref)
+        except Exception:
+            user_val = 0.0
+
+        # Scale user importance 0..1 (sliders 0..5)
+        imp = max(0.0, min(user_val, 5.0)) / 5.0
+
+        if var in gold_ranges and var in df.columns and gold_ranges[var] > 0:
+            # Gold: user_val is IDEAL in real units
+            ideal = user_val
+            val = pd.to_numeric(df.loc[idx, var], errors="coerce")
+            if pd.isna(val):
+                continue
+            closeness = max(0.0, 1.0 - (abs(val - ideal) / gold_ranges[var]))
+            total += closeness * pca_w * imp
         else:
-            # w is numeric = user_imp * pca
-            total += val * w
-    return total
+            # Normal / inv-normal: use normalized feature (already inverted if needed)
+            val = float(df_norm.loc[idx, col_norm])
+            total += val * pca_w * imp
+
+    return float(total)
 
 # ─────────────────────────────────────────────────────────────────────
-# 5. Public API
+# City/state extraction (robust)
+# ─────────────────────────────────────────────────────────────────────
+CITY_CANDS  = ["city", "City", "city_ascii", "Place", "name", "NAME"]
+STATE_CANDS = ["state", "State", "state_name", "ST", "st", "usps", "STATE"]
+
+def _pick_col(cands: Iterable[str], frame: pd.DataFrame) -> str | None:
+    for c in cands:
+        if c in frame.columns:
+            return c
+    return None
+
+CITY_COL  = _pick_col(CITY_CANDS, df)
+STATE_COL = _pick_col(STATE_CANDS, df)
+
+# ─────────────────────────────────────────────────────────────────────
+# Public API
 # ─────────────────────────────────────────────────────────────────────
 def suggest_top_cities(
-    prefs: Dict[str, Union[int, float]],
-    top_n: int = 5
-) -> List[str]:
-    """
-    prefs: {variable_name: 1-5 slider value, ...}
-    returns: list of "City, State" strings (best first).
-    """
-    # a) Copy and drop obsolete
-    df = df_master.drop(columns=[c for c in drop_vars if c in df_master.columns])
+    prefs: Dict[str, Union[int, float, str]],
+    top_n: int = 10
+) -> List[Dict[str, Union[str, float]]]:
+    # Drop obsolete features (if any)
+    to_drop = [c for c in drop_vars if c in df.columns]
+    frame = df.drop(columns=to_drop) if to_drop else df
 
-    # b) Invert bad-is-high vars
-    for v in invert_vars:
-        if v in df.columns:
-            df[v] = 1 - df[v]
+    # Score all rows
+    indices = frame.index.to_list()
+    scores  = np.array([_row_score(i, prefs) for i in indices])
+    if scores.size == 0:
+        return []
 
-    # c) Precompute gold ranges
-    gold_ranges = {
-        v: float(df[v].max() - df[v].min())
-        for v in gold_vars
-        if v in df.columns
-    }
-
-    # d) Build combined relevance weights
-    #    - norm vars: w = user_imp * pca
-    #    - gold vars: w = {"ideal":user_imp, "pca":pca}
-    rel_weights: Dict[str, Union[float, Dict[str, float]]] = {}
-    for var, pca_w in PCA_SCORES.items():
-        if var not in df.columns:
-            continue
-        user_imp = float(prefs.get(var, 0))
-        if var in gold_ranges:
-            rel_weights[var] = {"ideal": user_imp, "pca": pca_w}
-        else:
-            rel_weights[var] = user_imp * pca_w
-
-    # e) Score each row
-    scores = df.apply(lambda r: _row_score(r, rel_weights, gold_ranges), axis=1)
-
-    # f) Grab top indices
-    top_idx = scores.nlargest(top_n).index
-
-    # g) Build user-friendly names
-    results: List[str] = []
-    for idx in top_idx:
-        city_part  = (
-            df.loc[idx, "city_ascii"]
-            if "city_ascii" in df.columns else str(idx)
-        )
-        state_part = (
-            df.loc[idx, "State"]
-            if "State" in df.columns else None
-        )
-        results.append(
-            f"{city_part}, {state_part}" if state_part else city_part
-        )
-    return results
+    top_idx = np.argsort(-scores)[:max(1, int(top_n))]
+    out: List[Dict[str, Union[str, float]]] = []
+    for pos in top_idx:
+        i = indices[pos]
+        city  = str(frame.loc[i, CITY_COL]) if CITY_COL else str(i)
+        state = str(frame.loc[i, STATE_COL]) if STATE_COL else ""
+        out.append({"cityName": city, "stateName": state, "score": float(scores[pos])})
+    return out

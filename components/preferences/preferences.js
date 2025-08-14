@@ -208,69 +208,75 @@ let suggestions = {};
 let firstRank = 1;
 
 function findCity() {
-  // Disable "Find City" button to prevent accidentally calling endpoint multiple times.
   const doc = getDocNode();
   doc.getElementById("findCityBtn").disabled = true;
 
-  // Show the suggestions interface, ensuring the loading screen is shown.
+  // Show loading UI
   const suggestionsDoc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
   suggestionsDoc.getElementById("suggestions-container").style.display = "block";
   suggestionsDoc.getElementById("loading-screen").style.pointerEvents = "auto";
   suggestionsDoc.getElementById("loading-screen").style.opacity = "1.0";
-
-  // Scroll user to the suggestions interface to show them it is loading.
   smoothScrollTo('suggestions-component', 1000);
 
-  // Call PythonAnywhere API endpoint.
-  // Set the suggestions interface content based on results.
-  const BASE_URL = "https://jyoshiok.pythonanywhere.com/"
+  const url = (window.API_BASE || "") + "/api/suggest";
 
-  fetch(BASE_URL, {
+  fetch(url, {
     method: "POST",
-    body: JSON.stringify(ratings),
-    headers: {
-      "Content-type": "application/json; charset=UTF-8"
-    }
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ preferences: ratings })
   })
-    .then((res) => res.json())
+    .then(async (res) => {
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { throw new Error("Non-JSON response: " + text.slice(0, 200)); }
+      if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+      return data;
+    })
     .then((data) => {
-
+      // Backend now returns { suggestions: { "1": {...}, "2": {...}, ... } }
       suggestions = cleanData(data["suggestions"]);
 
-      // Initialize the suggestions interface.
-      firstRank = 1
+      // Initialize the suggestions UI
+      firstRank = 1;
       displayHighlight('1');
       displayResults(Object.fromEntries(Object.entries(suggestions).slice(0, 5)), "middle");
       displayResults(Object.fromEntries(Object.entries(suggestions).slice(5, 10)), "right");
       updateCarousel();
 
-      // Show suggestions once all data is set.
       suggestionsDoc.getElementById("loading-screen").style.pointerEvents = "none";
       suggestionsDoc.getElementById("loading-screen").style.opacity = "0.0";
-
-      // Re-enable "Find City" button to allow user to send another request.
       doc.getElementById("findCityBtn").disabled = false;
     })
     .catch((err) => {
-      // Notify user of the error.
-      alert("An error occurred! Please try again.");
-
       console.error(err);
+      alert("An error occurred! Please try again.");
+      suggestionsDoc.getElementById("loading-screen").style.pointerEvents = "none";
+      suggestionsDoc.getElementById("loading-screen").style.opacity = "0.0";
+      doc.getElementById("findCityBtn").disabled = false;
     });
 }
 
 class Preferences extends HTMLElement {
-  constructor() {
-    super();
-  }
+  constructor() { super(); }
 
   connectedCallback() {
     const preferencesTemplate = document.createElement('template');
     preferencesTemplate.innerHTML = preferencesTemplateContent;
-    
+
     const shadowRoot = this.attachShadow({ mode: 'open' });
     shadowRoot.appendChild(preferencesTemplate.content);
+
+    // new: bind events inside the shadow root
+    const btnFind = shadowRoot.getElementById('findCityBtn');
+    const btnBack = shadowRoot.getElementById('backBtn');
+    if (btnFind) btnFind.addEventListener('click', findCity);
+    if (btnBack) btnBack.addEventListener('click', showCategories);
   }
 }
 
 customElements.define('preferences-component', Preferences);
+
+window.findCity = findCity;
+window.showCategories = showCategories;
+

@@ -45,84 +45,70 @@ suggestionsTemplate.innerHTML = `
 
 function displayHighlight(rank) {
   const data = suggestions[rank];
+  if (!data) return;
 
-  const city = data['cityName'];
-  const state = data['stateName'];
-  const topFeatures = data['topFeatures'];
+  const city  = data['cityName'] || '';
+  const state = data['stateName'] || '';
+  let fips    = String(data['stateFIPS'] || '');
 
-  if (data['stateFIPS'].length < 2) {
-    data['stateFIPS'] = '0' + data['stateFIPS'];
-  }
-  const image = 'data/images/' + data['stateFIPS'] + '000.jpg';
+  // pad to 2 (e.g., "1" -> "01")
+  if (fips.length < 2) fips = fips.padStart(2, '0');
 
-  let reasons = ``;
-  topFeatures.forEach((feature) => {
-    reasons += `<li>`+ FEATURE_SUGGESTION_NAMES[feature] +`</li>`;
-  });
+  // use your real folder; add a fallback onerror
+  const image = 'city_images/' + fips + '000.jpg';
+
+  const topFeatures = Array.isArray(data['topFeatures']) ? data['topFeatures'] : [];
+  const reasons = topFeatures.map(f => `<li>${FEATURE_SUGGESTION_NAMES[f] || f}</li>`).join('');
 
   const element = `
-    <h1>`+ city +`,<br />`+ state +`</h1>
-    <h2>#`+ rank +`</h2>
-    
+    <h1>${city},<br />${state}</h1>
+    <h2>#${rank}</h2>
     <div class="list-container">
-      <p>You might like `+ city +` because of its...</p>
-      <ul>
-        `+ reasons +`
-      </ul>
+      <p>You might like ${city} because of its...</p>
+      <ul>${reasons}</ul>
     </div>
   `;
 
-  const imgElement = `<img src="`+ image +`" />`;
+  const imgElement = `<img src="${image}" onerror="this.src='assets/city.jpg'"/>`;
 
   const doc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
   doc.getElementById("highlight").innerHTML = element;
   doc.querySelector("div.suggestions-highlight-image").innerHTML = imgElement;
 }
 
+// make helpers visible to other components / shadow trees
+window.displayHighlight = displayHighlight;
+window.displayResults   = displayResults;
+window.updateCarousel   = updateCarousel;
+window.showResults      = showResults;  
+
+
 /**
  * @param container Either "left", "middle", or "right".
  */
+
 function displayResults(results, container) {
-  let elements = ``;
-  Object.entries(results).forEach((result) => {
-    const city = result[1]['cityName'];
-    const state = result[1]['stateName'];
-    const rank = result[1]['rank'];
-    if (result[1]['stateFIPS'].length < 2) {
-      result[1]['stateFIPS'] = '0' + result[1]['stateFIPS'];
-    }
-    const image = 'data/images/' + result[1]['stateFIPS'] + '000.jpg';
-    
+  const entries = Object.entries(results || {});
+  const html = entries.map(([_, item]) => {
+    const city  = item?.cityName || '';
+    const state = item?.stateName || '';
+    const rank  = item?.rank || '';
+    let fips    = String(item?.stateFIPS || '');
+    if (fips.length < 2) fips = fips.padStart(2, '0');
 
-    // Note: String cannot have spaces before/after div tags b/c it will cause unwanted padding.
-    elements += 
-      `<div class="result" onclick="displayHighlight(`+rank+`)">
-        <img src="`+ image +`" />
+    const image = 'city_images/' + fips + '000.jpg';
+
+    return `
+      <div class="result" onclick="displayHighlight(${rank})">
+        <img src="${image}" onerror="this.src='assets/city.jpg'"/>
         <div class="tint"></div>
-        <h1>`+ city +`, `+ state +`</h1>
-        <h2>`+ rank +`</h2>
+        <h1>${city}, ${state}</h1>
+        <h2>${rank}</h2>
       </div>`;
-  });
-  const doc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
-  doc.querySelector("div.result-group." + container).innerHTML = elements;
-}
+  }).join('');
 
-function updateCarousel() {
   const doc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
-  
-  // Remove left arrow if first result.
-  if (firstRank == 1) {
-    doc.querySelector("section.suggestions-results button.previous").style.display = "none";
-  } else {
-    doc.querySelector("section.suggestions-results button.previous").style.display = "block";
-  }
-
-  // Remove right arrow if no results are left.
-  if (firstRank+5 > Object.entries(suggestions).length) {
-    doc.querySelector("section.suggestions-results button.next").style.display = "none";
-  } else {
-    doc.querySelector("section.suggestions-results button.next").style.display = "block";
-  }
+  doc.querySelector("div.result-group." + container).innerHTML = html;
 }
 
 /**

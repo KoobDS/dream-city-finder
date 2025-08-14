@@ -17,7 +17,7 @@ const preferencesTemplateContent = `
       <h1>Preferences</h1>
 
       <div id="preferences-categories-container">
-        <h2>Choose a category to select your home city preferences!</h2>
+        <p class="lead">Answer questions in each category for the best result!</p>
         <div class="container">`+
           categoryButtons
         +`</div>

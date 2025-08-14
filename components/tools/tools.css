@@ -40,18 +40,24 @@ button.tools-select-btn:hover img {
 }
 button.tools-select-btn:nth-of-type(1) img { left: 0; }
 button.tools-select-btn:nth-of-type(2) img { right: 0; }
+
 button.tools-select-btn h1 {
     width: 40vw;
-    font-size: 8vw;
+    font-size: clamp(36px, 8vw, 120px);   /* responsive + consistent */
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -65%);
     font-family: var(--font-primary);
     color: #DBE4EE;
+    line-height: 0.95;
+    text-align: center;
 }
+
+/* Make the first line the same size as the second line */
 button.tools-select-btn h1 span {
-    font-size: 4vw;
+    font-size: inherit;  /* <- was 4vw, now inherits */
+    font-weight: 600;
 }
 
 /* Tool Container */

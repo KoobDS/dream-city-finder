@@ -69,7 +69,7 @@ const FEATURE_TYPES = {
  * Format: [min, max, units]
  */
 const GOLDILOCK_FEATURE_RANGES = {
-  'VALUEH_median': [175000, 9999999, 'USD', 400000],
+  'VALUEH_median': [175000, 1500000, 'USD', 400000],
   'AGE_mean': [31, 60, 'years', 42],
   'Annual_Precip': [0, 99, 'inches', 32],
   'Annual_Snowfall': [0, 220, 'inches', 2],
@@ -114,7 +114,7 @@ const FEATURE_NAMES = {
   'Average Tax Burden': 'Average Tax Burden is Low',
   'Dem_W': 'The Area Votes Democrat',
   'Food_Est': 'There are a Lot of Restaurants',
-  'AGE_mean': 'Average Age',
+  'AGE_mean': 'Average Resident Age',
   'IND_Fin_Ins_RealEstate': 'The Finance/Insurance/Real Estate Industry is Strong',
   'Hospital overall rating': 'Nearby Hospitals are High-Quality',
   'HS_GRAD_RATE': 'High School Graduation Rate is High',
@@ -216,7 +216,7 @@ const FEATURE_SUGGESTION_NAMES = {
   'Average Tax Burden': 'Average Tax Burden',
   'Dem_W': 'Democrat Voting Record',
   'Food_Est': 'Restaurants',
-  'AGE_mean': 'Average Age',
+  'AGE_mean': 'Average Resident Age',
   'IND_Fin_Ins_RealEstate': 'Finance/Insurance/Real Estate Industry',
   'Hospital overall rating': 'High-Quality Hospitals',
   'HS_GRAD_RATE': 'High School Graduation Rate',

@@ -18,8 +18,13 @@
  * Variables
  */
 :root {
-    --font-primary: TiltNeon;
+  /* Primary UI/display font */
+  --font-primary: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
+
+  /* Keep TiltNeon as accent */
+  --font-accent: TiltNeon;
 }
+
 
 /**
  * Global Styling

@@ -10,8 +10,8 @@ landingTemplate.innerHTML = `
   <div class="landing-container">
     <!-- Logo, slogan, and "Get Started" button -->
     <div class="landing-content">
-      <h1>CityFinder</h1>
-      <h2>Discover your next destination.</h2>
+      <h1>CityFinder v2</h1>
+      <h2>Find your dream city - then map the perfect route.</h2>
       <button class="primary" onclick="smoothScrollTo('tools-component', 1000)">Get Started</button>
     </div>
 
@@ -27,10 +27,7 @@ landingTemplate.innerHTML = `
 `;
 
 class Landing extends HTMLElement {
-  constructor() {
-    super();
-  }
-
+  constructor() { super(); }
   connectedCallback() {
     const shadowRoot = this.attachShadow({ mode: 'closed' });
     shadowRoot.appendChild(landingTemplate.content);

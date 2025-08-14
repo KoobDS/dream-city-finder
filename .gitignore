@@ -1,1 +1,4 @@
 .env
+__pycache__/
+api/__pycache__/
+note.txt

@@ -1,4 +1,4 @@
-# CityFinder
+# CityFinder v2
 
 Interactive web app which:
 - **Recommends your dream city based on your preferences and needs** using reputable data and a from-scratch algorthm.
@@ -13,6 +13,11 @@ All data are up to date as of 2024, with source links at the bottom of this docu
 |------|-----------------|
 | **Live site** | <https://KoobDS.github.io/dream-city-finder> |
 | **n-min walk-through** | [Demo video](https://youtu.be/...) |
+
+## How the algorithms work:
+
+- City recommender: ...
+- Trip mapper: ...
 
 ## Tech stack:
 | Layer | Main libs / services |
@@ -44,7 +49,7 @@ All data are up to date as of 2024, with source links at the bottom of this docu
 | Name | Key contributions |
 |-------|--------|
 | Benjamin Koob (me) | Data collection/engineering, Recommendation algorithm, Trip mapper algorithm (prior to capstone), Web/algorithm improvements (since capstone) |
-| Jovan Yoshioka | Data collection/engineering, Web app development |
+| Jovan Yoshioka | Data collection/engineering, Web app initial development |
 | Arwen Roach | Data collection/engineering, PCA analysis |
 
 ## Quick-start for devs

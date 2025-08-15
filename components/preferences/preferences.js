@@ -195,7 +195,8 @@ function findCity() {
     };
   }
 
-  scrollToResults();
+  window.smoothScrollTo('suggestions-component', 700);
+  // scrollToResults();
 
   const url = (window.API_BASE || "") + "/api/suggest";
   fetch(url, {

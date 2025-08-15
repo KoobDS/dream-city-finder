@@ -42,29 +42,31 @@
     // UI -------------------------------------------------------------------
     const ui = document.createElement("div");
     ui.style.display = "flex";
-    ui.style.gap = "8px";
+    ui.style.gap = "12px";
     ui.style.flexWrap = "wrap";
     ui.style.alignItems = "flex-end";
     ui.style.marginBottom = "10px";
+    ui.style.paddingRight = "200px";
     root.appendChild(ui);
 
-    // Inputs with explicit ch widths
-    const home    = mkInput("Knoxville", "trip-home", "24ch");                // ~24 chars
-    const stops   = mkInput("Atlanta, Chicago, New York", "trip-stops", "60ch"); // ~60 chars
+    // requested defaults
+    const home    = mkInput("Knoxville", "trip-home", "24ch");
+    const stops   = mkInput("Chongqing, Lagos, Chicago, La Paz, Bergen, Christchurch", "trip-stops", "60ch");
     const planBtn = mkBtn("Plan", "trip-plan");
     const saveBtn = mkBtn("Save PNG", "trip-save");
-
-    // Slight inset so buttons aren’t glued to the edge
-    planBtn.style.marginLeft = "auto";
-    planBtn.style.marginRight = "6px";
 
     const homeWrap  = labelWrap("Home City", home);
     const stopsWrap = labelWrap("Stops (comma-separated)", stops);
 
-    homeWrap.style.flex  = "0 0 auto";
-    stopsWrap.style.flex = "0 0 auto";
+    // give inputs room, force buttons to wrap instead of clipping
+    homeWrap.style.flex  = "1 1 240px";
+    stopsWrap.style.flex = "2 1 520px";
+    planBtn.style.flex   = "0 0 auto";
+    saveBtn.style.flex   = "0 0 auto";
 
+    // no spacer (lets buttons wrap on narrow screens instead of falling off)
     ui.append(homeWrap, stopsWrap, planBtn, saveBtn);
+
 
     // SVG ------------------------------------------------------------------
     const svg = d3.select(root)

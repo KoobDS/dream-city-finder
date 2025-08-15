@@ -1,11 +1,36 @@
 (() => {
-  // Global smooth scroll helper (used by index.html and preferences.js)
-  window.smoothScrollTo = window.smoothScrollTo || function (selector, offsetPx = 20) {
-    const el = typeof selector === "string" ? document.querySelector(selector) : selector;
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.pageYOffset - offsetPx;
-    window.scrollTo({ top, behavior: "smooth" });
-  };
+
+  // Keep page at top on first paint & disable browser auto-restore
+(function () {
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  // run twice to beat any late layout shifts
+  window.scrollTo(0, 0);
+  setTimeout(() => window.scrollTo(0, 0), 0);
+})();
+
+// shared smooth scroll used across components
+window.smoothScrollTo = window.smoothScrollTo || function smoothScrollTo(selector, duration = 700) {
+  const el = document.querySelector(selector);
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.pageYOffset;
+  window.scrollTo({ top, behavior: 'smooth' });
+};
+
+// Anti-autoscroll: pin to top for ~300ms unless user scrolls
+(function antiAutoScroll(){
+  let pinned = true;
+  const start = performance.now();
+  function tick(){
+    const now = performance.now();
+    if (now - start > 300 || !pinned) return;
+    // only pin if user hasn't scrolled themselves
+    if (window.pageYOffset < 4) window.scrollTo(0, 0);
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener("wheel",   () => { pinned = false; }, { once: true, passive: true });
+  window.addEventListener("touchend",() => { pinned = false; }, { once: true, passive: true });
+  requestAnimationFrame(tick);
+})();
 
   window.addEventListener("load", () => {
     // prevent any residual scroll from previous refreshes/anchors

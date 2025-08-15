@@ -67,3 +67,31 @@ class Tools extends HTMLElement {
 }
 
 customElements.define('tools-component', Tools);
+
+function showToolPicker() {
+  const tools = document.querySelector("tools-component");
+  const sr = tools?.shadowRoot;
+  if (sr) {
+    const btns = sr.querySelectorAll(".tools-select-btn");
+    btns.forEach((b) => {
+      b.style.zIndex = 1;
+      b.style.width = "50%";
+      b.style.pointerEvents = "auto";
+      const img = b.querySelector("img");
+      if (img) img.style.transform = "";
+    });
+    const sections = sr.querySelectorAll("#whereToLive, #whereToVisit");
+    sections.forEach((sec) => {
+      sec.style.display = "none";
+      sec.style.transform = "translateY(100%)";
+    });
+  }
+
+  // also hide the suggestions overlay if it was left open
+  const suggSR = document.querySelector("suggestions-component")?.shadowRoot;
+  const cont = suggSR?.getElementById("suggestions-container");
+  if (cont) cont.style.display = "none";
+}
+window.showToolPicker = showToolPicker;
+
+

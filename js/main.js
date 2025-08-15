@@ -7,8 +7,19 @@
     window.scrollTo({ top, behavior: "smooth" });
   };
 
+  window.addEventListener("load", () => {
+    // prevent any residual scroll from previous refreshes/anchors
+    try { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); } catch {}
+  });
+
+
   // Ensure API_BASE exists for fetch calls
   window.API_BASE = window.API_BASE || "";
+
+  // ensure top on first load
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!location.hash) window.scrollTo(0, 0);
+  });
 
   document.addEventListener("DOMContentLoaded", () => {
     // Wire the “Get started” / hero button (supports id or data-attribute)

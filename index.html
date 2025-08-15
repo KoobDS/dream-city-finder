@@ -11,22 +11,25 @@
     <link rel="stylesheet" type="text/css" href="assets/fontawesome-6.5.2/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="css/global.css">
 
-    <!-- Make API_BASE available to all components -->
-    <script src="js/main.js" defer></script>
+<!-- keep main.js first in <head> -->
+<script src="js/main.js" defer></script>
 
-    <!-- libs used by trip map -->
-    <script src="https://unpkg.com/d3@7" defer></script>
-    <script src="https://unpkg.com/topojson-client@3" defer></script>
-    <script src="https://unpkg.com/d3-geo-projection@4" defer></script>
+<!-- libs for the trip map -->
+<script src="https://unpkg.com/d3@7" defer></script>
+<script src="https://unpkg.com/topojson-client@3" defer></script>
 
-    <!-- components -->
-    <script src="components/landing/landing.js" defer></script>
-    <script src="components/tools/tools.js" defer></script>
-    <script src="components/preferences/data.js" defer></script>
-    <script src="components/preferences/preferences.js" defer></script>
-    <script src="components/suggestions/suggestions.js" defer></script>
-    <script src="components/footer/footer.js" defer></script>
-    <script src="components/trip-planner/trip-planner.js" defer></script>
+<!-- components -->
+<script src="components/landing/landing.js" defer></script>
+<script src="components/tools/tools.js" defer></script>
+
+<!-- IMPORTANT: data first, then suggestions, then preferences -->
+<script src="components/preferences/data.js" defer></script>
+<script src="components/suggestions/suggestions.js" defer></script>
+<script src="components/preferences/preferences.js" defer></script>
+
+<script src="components/footer/footer.js" defer></script>
+<script src="components/trip-planner/trip-planner.js" defer></script>
+
   </head>
 
   <body>

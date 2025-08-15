@@ -73,6 +73,26 @@ function createCategoryButtons(categories) {
   ).join("");
 }
 
+// "Find City" scroll further
+function scrollToResults() {
+  const target = document.querySelector("suggestions-component");
+  if (!target) return;
+  // first bring it into view…
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  // …then nudge a bit so the highlight is comfortably visible
+  setTimeout(() => {
+    window.scrollBy({ top: 140, left: 0, behavior: "smooth" });
+  }, 300);
+}
+window.scrollToResults = scrollToResults; // optional global
+
+// in findCity(), replace the old smoothScrollTo line with:
+scrollToResults();
+
+// and after the results are mounted (right after initSuggestionsUI()):
+initSuggestionsUI();
+setTimeout(scrollToResults, 200);  // ensure the rendered height is taken into account
+
 /* --------------------------- questionnaire -------------------------- */
 function addQuestions(category) {
   const features = [];
@@ -175,7 +195,7 @@ function findCity() {
     };
   }
 
-  smoothScrollTo('suggestions-component', 900);
+  scrollToResults();
 
   const url = (window.API_BASE || "") + "/api/suggest";
   fetch(url, {
@@ -195,8 +215,7 @@ function findCity() {
       window.suggestions = data.suggestions || {};
       window.firstRank   = 1;
 
-      // One clean init only
-      initSuggestionsUI();
+      if (window.initSuggestionsUI) window.initSuggestionsUI();
 
       // hide overlay
       sdoc.getElementById("loading-screen").style.pointerEvents = "none";

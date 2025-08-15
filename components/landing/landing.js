@@ -12,11 +12,11 @@ landingTemplate.innerHTML = `
     <div class="landing-content">
       <h1>CityFinder v2</h1>
       <h2>Find your dream city - then map the perfect route.</h2>
-      <button class="primary" onclick="smoothScrollTo('tools-component', 1000)">Get Started</button>
+      <button id="getStartedBtn" class="primary">Get Started</button>
     </div>
 
     <!-- Bobbing arrow -->
-    <i class="fa-solid fa-angle-down" onclick="smoothScrollTo('tools-component', 1000)"></i>
+    <i id="downArrow" class="fa-solid fa-angle-down"></i>
     
     <!-- Black tinted background video -->
     <div class="tint"></div>
@@ -29,8 +29,17 @@ landingTemplate.innerHTML = `
 class Landing extends HTMLElement {
   constructor() { super(); }
   connectedCallback() {
-    const shadowRoot = this.attachShadow({ mode: 'closed' });
-    shadowRoot.appendChild(landingTemplate.content);
+    const shadowRoot = this.attachShadow({ mode: 'open' });
+    shadowRoot.appendChild(landingTemplate.content.cloneNode(true));
+
+    const scrollToTools = () => {
+      if (window.showToolPicker) try { window.showToolPicker(); } catch {}
+      const target = document.querySelector('tools-component');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    shadowRoot.getElementById('getStartedBtn')?.addEventListener('click', scrollToTools);
+    shadowRoot.getElementById('downArrow')?.addEventListener('click', scrollToTools);
   }
 }
 

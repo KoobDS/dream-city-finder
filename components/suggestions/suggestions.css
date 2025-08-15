@@ -96,6 +96,7 @@ section.suggestions-results {
   width: 100%;
   height: 42%;            /* was 40% — a touch taller for breathing room */
   position: relative;
+  overflow: hidden;   /* hide off-screen slivers */
 }
 section.suggestions-results button {
   width: 64px;            /* was 75px (visually too wide for 5-up) */

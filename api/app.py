@@ -4,14 +4,18 @@ from pathlib import Path
 import logging
 import math
 
-# Pull from your algo; df_master used for stateFIPS lookup
-from suggestion_algo import suggest_top_cities, df_master  # type: ignore
+# Pull from algo
+from suggestion_algo import (
+    suggest_top_cities,
+    df_master,                 # master dataframe
+    PCA_SCORES                 # dict: feature -> weight (we use abs() as relevance)
+)
 
-# Optional: weights per feature (used for fallback reasons)
+# Try to import feature handling details for better “reason” scoring
 try:
-    from suggestion_algo import PCA_SCORES  # type: ignore
+    from suggestion_algo import invert_vars, gold_vars
 except Exception:
-    PCA_SCORES = {}
+    invert_vars, gold_vars = [], []
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -98,24 +102,93 @@ def _clamp(x, lo=0, hi=100):
     return max(lo, min(hi, x))
 
 
-def _fallback_top_features(prefs: dict, k: int = 5):
+# Precompute global stats for features we can reason about
+import pandas as pd
+_num_cols = []
+_means = {}
+_stds  = {}
+_ranges = {}
+
+if df_master is not None and not df_master.empty:
+    for f in PCA_SCORES.keys():
+        if f in df_master.columns:
+            try:
+                s = pd.to_numeric(df_master[f], errors="coerce")
+                if s.notna().sum() > 3:
+                    _num_cols.append(f)
+                    _means[f]  = float(s.mean())
+                    _stds[f]   = float(s.std(ddof=0)) or 0.0
+                    _ranges[f] = float(s.max() - s.min()) or 0.0
+            except Exception:
+                pass
+
+
+def _city_top_features(city: str, state: str, prefs: dict, k: int = 5):
     """
-    If the algorithm doesn't supply topFeatures, compute a reasonable
-    fallback: rank features by |PCA weight| * user importance.
+    Compute city-specific reasons:
+      - For 'gold' features: score by closeness to the user's ideal (1 - |v-ideal|/range)
+      - For others: score by |z-score| (how extreme the city is) with inversion respected
+      Then weight by |PCA| * user importance.
+    Returns a list of feature keys (NOT friendly names).
     """
-    if not PCA_SCORES:
+    row = _find_master_row(city, state)
+    if row is None:
         return []
-    pairs = []
-    for f, pca_w in PCA_SCORES.items():
+
+    scores = []
+    for f in _num_cols:
         try:
-            imp = float(prefs.get(f, 0))  # 1..5 for norm/inv; numeric for gold
+            v = float(row.get(f))
+        except Exception:
+            continue
+
+        pca_w = abs(float(PCA_SCORES.get(f, 0.0)))
+        if pca_w <= 0:
+            continue
+
+        # user importance: radio sliders 1..5, gold sliders are numeric "ideal"
+        raw_imp = prefs.get(f, 0)
+        try:
+            imp = float(raw_imp)
         except Exception:
             imp = 0.0
-        w = abs(float(pca_w)) * imp
-        if w > 0 and f:
-            pairs.append((w, f))
-    pairs.sort(reverse=True)
-    return [f for _, f in pairs[:k]]
+
+        # Skip if the user said "not important" (or missing)
+        if imp <= 0:
+            continue
+
+        if f in gold_vars:
+            # Ideal value from prefs for gold features
+            ideal = imp  # for gold, we stored the slider numeric as the value itself
+            rng   = _ranges.get(f, 0.0)
+            if rng <= 0:
+                continue
+            # closeness 0..1
+            closeness = 1.0 - (abs(v - ideal) / rng)
+            closeness = max(0.0, min(1.0, closeness))
+            feat_score = pca_w * closeness
+        else:
+            # Standard z-score magnitude (how distinctive is this city)
+            mu  = _means.get(f, 0.0)
+            sd  = _stds.get(f, 0.0) or 0.0
+            if sd <= 0:
+                continue
+            z = (v - mu) / sd
+            # if "bad-is-high" invert feature, flip sign so high value becomes bad
+            if f in invert_vars:
+                z = -z
+            feat_score = pca_w * abs(z)
+
+        # Finally weight by user *importance* for non-gold (1..5).
+        # For gold, we already used the ideal numeric; scale by 1 (treat closeness itself as the "importance").
+        if f not in gold_vars:
+            feat_score *= imp
+
+        if feat_score > 0:
+            scores.append((feat_score, f))
+
+    scores.sort(reverse=True)
+    return [f for _, f in scores[:k]]
 
 
 # ─────────────────────────────────────────────────────────
@@ -126,82 +199,64 @@ def api_suggest():
     """
     Returns top-N suggestions enriched with:
       - stateFIPS (for image lookup)
-      - topFeatures (from the algorithm if present; otherwise PCA-weighted fallback)
+      - topFeatures (city-specific reasons using PCA + user prefs + city stats)
       - scaledScore (0-100 using *global* min/max across all cities)
     """
     payload = request.get_json(silent=True) or {}
     prefs   = payload.get("preferences") or {}
     limit   = int(payload.get("limit") or payload.get("top") or 25)
 
-    # 1) Get top-N (these should include raw 'score' and often 'topFeatures')
+    # 1) Get top-N (these may include raw 'score')
     topN = suggest_top_cities(prefs, top_n=limit)
 
-    # 2) Get global min/max by asking the algorithm for *all* scored rows.
-    #    If the function can’t handle huge 'top_n', we fall back to topN min/max.
+    # 2) Global min/max (try to score all; fallback to topN range)
     global_min = None
     global_max = None
     try:
         all_scored = suggest_top_cities(prefs, top_n=10_000_000)
         if all_scored and isinstance(all_scored, list):
-            scores = []
+            vals = []
             for it in all_scored:
                 if isinstance(it, dict) and "score" in it:
-                    try:
-                        scores.append(float(it["score"]))
-                    except Exception:
-                        pass
-            if scores:
-                global_min = min(scores)
-                global_max = max(scores)
+                    try: vals.append(float(it["score"]))
+                    except Exception: pass
+            if vals:
+                global_min, global_max = min(vals), max(vals)
     except Exception as e:
         log.info("Global min/max fallback (reason: %s)", e)
 
-    # Fallback to min/max of topN if we couldn’t get global range
     if global_min is None or global_max is None:
-        scores = []
+        vals = []
         for it in (topN or []):
             if isinstance(it, dict) and "score" in it:
-                try:
-                    scores.append(float(it["score"]))
-                except Exception:
-                    pass
-        if scores:
-            global_min = min(scores)
-            global_max = max(scores)
+                try: vals.append(float(it["score"]))
+                except Exception: pass
+        if vals:
+            global_min, global_max = min(vals), max(vals)
 
-    # Safety: avoid division-by-zero later
-    if global_min is None:
-        global_min = 0.0
-    if global_max is None:
-        global_max = 1.0
+    if global_min is None: global_min = 0.0
+    if global_max is None: global_max = 1.0
     same = (abs(global_max - global_min) < 1e-12)
 
     # 3) Normalize + enrich
     items = []
     for item in (topN or []):
-        # Normalize city/state and pull through algo-provided fields when present
+        # Normalize city/state and pull through algo-provided score (if present)
         if isinstance(item, str):
             city_part, state_part = (item.split(",", 1) + [""])[:2]
             city_part  = city_part.strip()
             state_part = state_part.strip()
             raw_score  = None
-            top_feats  = []
         elif isinstance(item, dict):
             city_part  = (item.get("cityName") or item.get("city_ascii")
                           or item.get("city") or "").strip()
             state_part = (item.get("stateName") or item.get("State")
                           or item.get("state") or "").strip()
             raw_score  = item.get("score", None)
-            # accept either 'topFeatures' or 'top_features'
-            top_feats  = item.get("topFeatures") or item.get("top_features") or []
         else:
-            city_part, state_part, raw_score, top_feats = str(item), "", None, []
+            city_part, state_part, raw_score = str(item), "", None
 
-        # ensure we always have some reasons
-        if not top_feats:
-            top_feats = _fallback_top_features(prefs, k=5)
-
-        # derive stateFIPS (2-digit) from your master row
+        # state FIPS for image path
         row = _find_master_row(city_part, state_part)
         state_fips = _derive_state_fips(_row_to_dict(row))
 
@@ -215,13 +270,16 @@ def api_suggest():
         else:
             scaled = 100 if raw_score is not None else None
 
+        # city-specific reasons
+        reasons = _city_top_features(city_part, state_part, prefs, k=5)
+
         items.append({
             "cityName": city_part,
             "stateName": state_part,
             "stateFIPS": state_fips,
-            "topFeatures": top_feats,       # final set of reasons
-            "rawScore": raw_score,          # keep raw if you want to show it later
-            "scaledScore": scaled           # 0..100 (global)
+            "topFeatures": reasons,  # <- per-city, per-prefs
+            "rawScore": raw_score,
+            "scaledScore": scaled
         })
 
     suggestions = {str(i): it for i, it in enumerate(items, start=1)}
@@ -230,8 +288,7 @@ def api_suggest():
 
 @app.post("/api/route")
 def api_route():
-    # Local import avoids ImportError during early development
-    from trip_mapper import build_route  # type: ignore
+    from trip_mapper import build_route  # local import during dev
     payload = request.get_json(silent=True) or {}
     home  = payload.get("home", "")
     stops = payload.get("stops", [])
@@ -262,6 +319,13 @@ def city_images(fn): return send_from_directory(ROOT / "city_images", fn)
 @app.get("/data/<path:fn>")
 def data_files(fn): return send_from_directory(ROOT / "data", fn)
 
+@app.get("/favicon.ico")
+def favicon():
+    assets_dir = ROOT / "assets"
+    ico = assets_dir / "favicon.ico"
+    if ico.exists():
+        return send_from_directory(assets_dir, "favicon.ico")
+    return ("", 204)
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

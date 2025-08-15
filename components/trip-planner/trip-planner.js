@@ -4,12 +4,18 @@
   const ROUTE = "#DB5461";
   const WIDTH = 1200, HEIGHT = 650;
 
+  // Simple reinit guard (avoid double-mount if scripts run twice)
+  let mountedOnce = false;
+
   // wait for d3 & topojson ------------------------------------------------
   (function readyGate() {
     if (!window.d3 || !window.topojson) {
       return setTimeout(readyGate, 30);
     }
-    init();
+    if (!mountedOnce) {
+      mountedOnce = true;
+      init();
+    }
   })();
 
   function init() {
@@ -43,42 +49,37 @@
     root.appendChild(ui);
 
     // Inputs with explicit ch widths
-    const home    = mkInput("Knoxville", "trip-home", "24ch");                   // ~24 chars
+    const home    = mkInput("Knoxville", "trip-home", "24ch");                // ~24 chars
     const stops   = mkInput("Atlanta, Chicago, New York", "trip-stops", "60ch"); // ~60 chars
     const planBtn = mkBtn("Plan", "trip-plan");
     const saveBtn = mkBtn("Save PNG", "trip-save");
 
+    // Slight inset so buttons aren’t glued to the edge
+    planBtn.style.marginLeft = "auto";
+    planBtn.style.marginRight = "6px";
+
     const homeWrap  = labelWrap("Home City", home);
     const stopsWrap = labelWrap("Stops (comma-separated)", stops);
 
-    // Keep wrappers compact; let content control size
     homeWrap.style.flex  = "0 0 auto";
     stopsWrap.style.flex = "0 0 auto";
-
-    // Push buttons to the right, but inset a bit from the edge
-    planBtn.style.marginLeft = "auto";
-    saveBtn.style.marginRight = "16px";
 
     ui.append(homeWrap, stopsWrap, planBtn, saveBtn);
 
     // SVG ------------------------------------------------------------------
-    let svgNode = null;
-
     const svg = d3.select(root)
       .append("svg")
       .attr("id", "trip-svg")
       .attr("xmlns", "http://www.w3.org/2000/svg")
       .attr("xmlns:xlink", "http://www.w3.org/1999/xlink")
       .attr("width", "85%")           // narrower box
-      .attr("height", "86vh")         // ~+1/6 taller
+      .attr("height", "86vh")         // a bit taller
       .attr("viewBox", `0 0 ${WIDTH} ${HEIGHT}`)
       .style("display", "block")
       .style("margin", "0 auto")      // centered
       .style("background", OCEAN)
       .style("border-radius", "12px")
       .style("box-shadow", "0 6px 20px rgba(0,0,0,.25)");
-
-    svgNode = svg.node();
 
     // REAL background so exports look identical
     svg.append("rect")
@@ -89,8 +90,8 @@
 
     const g = svg.append("g");
 
-    // Projection + path
-    const projection = d3.geoMollweide()
+    // Projection + path (NaturalEarth1 is built-in; avoids extra plugin)
+    const projection = d3.geoNaturalEarth1()
       .translate([WIDTH / 2, HEIGHT / 2])
       .scale(210);
 
@@ -159,13 +160,14 @@
       }
     });
 
-    // Save as PNG
+    // Save as PNG — query from *this* panel’s root so shadow DOM never blocks us
     saveBtn.addEventListener("click", () => {
-      if (!svgNode) {
+      const el = root.querySelector("#trip-svg"); // <-- key change
+      if (!el) {
         alert("Map not ready yet — try again in a moment.");
         return;
       }
-      exportSvgAsPng(svgNode, "trip-map.png", {
+      exportSvgAsPng(el, "trip-map.png", {
         width: WIDTH,
         height: HEIGHT,
         backgroundColor: OCEAN

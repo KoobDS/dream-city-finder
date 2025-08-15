@@ -15,7 +15,11 @@ suggestionsTemplate.innerHTML = `
         <div id="highlight" class="container"></div>
       </div>
       <div class="suggestions-highlight-image"></div>
-      <button id="savePdf" class="primary" style="position:absolute; top:8px; right:8px;">Save PDF</button>
+      <button id="savePdf" class="primary"
+              style="position:absolute; top:16px; right:12px; padding:6px 14px;">
+        Save PDF
+      </button>
+
     </section>
 
     <section class="suggestions-results">

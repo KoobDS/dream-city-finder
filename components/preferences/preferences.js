@@ -1,224 +1,192 @@
-// Reference: https://www.freecodecamp.org/news/reusable-html-components-how-to-reuse-a-header-and-footer-on-a-website/
+// components/preferences/preferences.js
+// -------------------------------------------------------
+// Renders the questionnaire and calls the /api/suggest endpoint.
+// Expects data constants from components/preferences/data.js.
+// Expects suggestions UI helpers from components/suggestions/suggestions.js
+// -------------------------------------------------------
 
-// Dictionary to keep dynamically updated ratings.
-// Note: Initialize every feature as default rating "1" for suggestion algorithm.
+// Default radio choice (importance) and in-memory ratings store
 const DEFAULT_RATING = "1";
-const ratings = getDefaultRatings();
+let   ratings        = getDefaultRatings();
 
-// Create button elements for each category.
+// These two are shared with suggestions.js via the global lexical env.
+let suggestions = {};
+let firstRank   = 1;
+
+// Build the category button strip once
 const categoryButtons = createCategoryButtons(FEATURE_CATEGORIES);
 
+// Template
 const preferencesTemplateContent = `
-    <link rel="stylesheet" type="text/css" href="assets/fontawesome-6.5.2/css/all.min.css">
-    <link rel="stylesheet" type="text/css" href="css/global.css">
-    <link rel="stylesheet" type="text/css" href="components/preferences/preferences.css">
+  <link rel="stylesheet" type="text/css" href="assets/fontawesome-6.5.2/css/all.min.css">
+  <link rel="stylesheet" type="text/css" href="css/global.css">
+  <link rel="stylesheet" type="text/css" href="components/preferences/preferences.css">
 
-    <div class="preferences-container">
-      <h1>Preferences</h1>
+  <div class="preferences-container">
+    <h1>Preferences</h1>
 
-      <div id="preferences-categories-container">
-        <p class="lead">Answer questions in each category for the best result!</p>
-        <div class="container">`+
-          categoryButtons
-        +`</div>
-      </div>
-        
-      <div id="preferences-rating-container">
-        <h2>Please answer these questions to help us find the perfect city for you!</h2>
-        <div id="response-rows">
-          <!-- Populated by addQuestions() -->
-        </div>
-      </div>
-
-      <div class="preferences-buttons">
-        <button onclick="showCategories()" id="backBtn" class="primary"><i class="fa-solid fa-chevron-left"></i> Back</button>
-        <button onclick="findCity()" id="findCityBtn" class="primary">Find City</button>
-      </div>
+    <div id="preferences-categories-container">
+      <p class="lead">Answer questions in each category for the best result!</p>
+      <div class="container">${categoryButtons}</div>
     </div>
+      
+    <div id="preferences-rating-container">
+      <h2>Please answer these questions to help us find the perfect city for you!</h2>
+      <div id="response-rows"><!-- Populated by addQuestions() --></div>
+    </div>
+
+    <div class="preferences-buttons">
+      <button onclick="showCategories()" id="backBtn" class="primary">
+        <i class="fa-solid fa-chevron-left"></i> Back
+      </button>
+      <button onclick="findCity()" id="findCityBtn" class="primary">Find City</button>
+    </div>
+  </div>
 `;
 
+/* ----------------------------- helpers ----------------------------- */
+function getDocNode() {
+  // <tools-component> → <preferences-component> (both shadow DOM)
+  const tools = document.querySelector("tools-component");
+  if (!tools || !tools.shadowRoot) return null;
+  const pref = tools.shadowRoot.querySelector("preferences-component");
+  if (!pref || !pref.shadowRoot) return null;
+  return pref.shadowRoot;
+}
+
 function getDefaultRatings() {
-  // Initialize each feature as default rating "3" (norm/inv_norm) or average (goldilock).
+  // For gold features, seed the slider to the median provided in GOLDILOCK_FEATURE_RANGES
   const featureRatings = {};
-  for (const [key, value] of Object.entries(FEATURES_CATEGORIZED)) {
+  Object.entries(FEATURES_CATEGORIZED).forEach(([key]) => {
     if (key in GOLDILOCK_FEATURE_RANGES) {
-      // Initialize as median of values for goldilocks feature.
-      // Note: mean not used since it is heavily influenced by outlier values.
-      const data = GOLDILOCK_FEATURE_RANGES[key];
-      const medianVal = data[3];
-      featureRatings[key] = medianVal.toString();
+      const data = GOLDILOCK_FEATURE_RANGES[key]; // [min, max, units, median]
+      featureRatings[key] = String(data[3]);
     } else {
-      // Initialize as default "3" for norm/inv_norm feature.
       featureRatings[key] = DEFAULT_RATING;
     }
-  }
+  });
   return featureRatings;
 }
 
 function rateFeature(inputNode) {
-  const feature = inputNode.name;
-  const rating = inputNode.value;
-
-  ratings[feature] = rating;
+  ratings[inputNode.name] = inputNode.value;
 }
 
 function handleSlider(sliderNode) {
-  // Update rating dictionary with value.
   rateFeature(sliderNode);
-
-  // Update displayed value.
   const doc = getDocNode();
-  const feature = sliderNode.name;
-  const rating = sliderNode.value;
-
-  doc.getElementById(feature + "-display").innerHTML = rating;
-}
-
-function myFunction() {
-  alert("I am an alert box!");
-}
-
-function getDocNode() {
-  return document.getElementsByTagName("tools-component")[0].shadowRoot.querySelector("preferences-component").shadowRoot;
+  if (!doc) return;
+  doc.getElementById(sliderNode.name + "-display").textContent = sliderNode.value;
 }
 
 function createCategoryButtons(categories) {
-  var buttonsHTML = ``;
-  for (var i = 0; i < categories.length; i++) {
-    buttonsHTML += `<button class="preferences-category" onclick="selectCategory('` + categories[i] + `')">` + categories[i] + `</button>`;
-  }
-  return buttonsHTML;
+  return categories.map(cat =>
+    `<button class="preferences-category" onclick="selectCategory('${cat}')">${cat}</button>`
+  ).join("");
 }
 
+/* --------------------------- questionnaire -------------------------- */
 function addQuestions(category) {
-  // Retrieve all features in passed category.
+  // All features that belong to this category
   const features = [];
-  for (const [key, value] of Object.entries(FEATURES_CATEGORIZED)) {
-    if (value == category) {
-      features.push(key);
-    }
-  }
+  Object.entries(FEATURES_CATEGORIZED).forEach(([feature, cat]) => {
+    if (cat === category) features.push(feature);
+  });
 
-  // Create a "response-row" element for each of the features.
-  var elements = ``;
+  let html = ``;
+
   features.forEach((feature) => {
-    // Retrieve question prompt based on norm/inv_norm/goldilocks type.
-    const type = FEATURE_TYPES[feature];
+    const type     = FEATURE_TYPES[feature];                // 'norm' | 'inv_norm' | 'gold'
     const question = FEATURE_TYPE_QUESTIONS[type];
+    const disp     = (FEATURE_NAMES[feature] || feature).toLowerCase();
 
-    // Retrieve user-facing name for feature.
-    // Note: display names capitalized like a title, so convert to lowercase for question sentence.
-    const displayName = FEATURE_NAMES[feature].toLowerCase();
-
-    // Determine which rating button to check based on feature's current rating.
-    // Note: rating corresponds to index of "checked" array, which will add the "checked" attribute to respective radio button.
-    const checked = ["", "", "", "", ""];
-    checked[parseInt(ratings[feature])-1] = "checked";
-
-    // Create HTML element with appropriate data.
-    if (type != "gold") {
-      // Add radio button for rating.
-      elements += `
+    if (type !== "gold") {
+      const checked = ["", "", "", "", ""];
+      checked[(parseInt(ratings[feature] || DEFAULT_RATING, 10) - 1)] = "checked";
+      html += `
         <div class="response-row">
-          <div class="text">
-            <p>`+ question +` `+ displayName +`?</p>
-          </div>
+          <div class="text"><p>${question} ${disp}?</p></div>
           <div class="right-side">
             <div class="labels">
-              <p>Not Important</p>
-              <p>Very Important</p>
+              <p>Not Important</p><p>Very Important</p>
             </div>
             <div class="buttons">
-              <input type="radio" name="`+ feature +`" value="1" onchange="rateFeature(this)" `+ checked[0] +`>
-              <input type="radio" name="`+ feature +`" value="2" onchange="rateFeature(this)" `+ checked[1] +`>
-              <input type="radio" name="`+ feature +`" value="3" onchange="rateFeature(this)" `+ checked[2] +`>
-              <input type="radio" name="`+ feature +`" value="4" onchange="rateFeature(this)" `+ checked[3] +`>
-              <input type="radio" name="`+ feature +`" value="5" onchange="rateFeature(this)" `+ checked[4] +`>
+              <input type="radio" name="${feature}" value="1" onchange="rateFeature(this)" ${checked[0]}>
+              <input type="radio" name="${feature}" value="2" onchange="rateFeature(this)" ${checked[1]}>
+              <input type="radio" name="${feature}" value="3" onchange="rateFeature(this)" ${checked[2]}>
+              <input type="radio" name="${feature}" value="4" onchange="rateFeature(this)" ${checked[3]}>
+              <input type="radio" name="${feature}" value="5" onchange="rateFeature(this)" ${checked[4]}>
             </div>
           </div>
-        </div>
-      `;
+        </div>`;
     } else {
-      // Add slider to choose ideal value (for goldilock features).
-      const data = GOLDILOCK_FEATURE_RANGES[feature];
-      const minVal = data[0];
-      const maxVal = data[1];
-      const units = data[2];
-
-      elements += `
+      const [minVal, maxVal, units] = GOLDILOCK_FEATURE_RANGES[feature];
+      const val = ratings[feature];
+      html += `
         <div class="response-row">
-          <div class="text">
-            <p>`+ question +` `+ displayName +`?</p>
-          </div>
+          <div class="text"><p>${question} ${disp}?</p></div>
           <div class="right-side">
             <div class="slider-container">
               <p class="slider-value">
-                <span id="`+ feature +`-display">`+ ratings[feature] +`</span> `+ units +`
+                <span id="${feature}-display">${val}</span> ${units}
               </p>
-              <input type="range" min="`+ minVal +`" max="`+ maxVal +`" value="`+ ratings[feature] +`" class="slider" name="`+ feature +`" oninput="handleSlider(this)">
+              <input type="range"
+                     min="${minVal}" max="${maxVal}" value="${val}"
+                     class="slider" name="${feature}" oninput="handleSlider(this)">
             </div>
           </div>
-        </div>
-      `;
+        </div>`;
     }
   });
 
-  // Add elements to the DOM.
   const doc = getDocNode();
-  doc.getElementById("response-rows").innerHTML = elements;
+  if (!doc) return;
+  doc.getElementById("response-rows").innerHTML = html;
 }
 
 function selectCategory(category) {
   const doc = getDocNode();
-
-  // Hide category selection interface.
+  if (!doc) return;
   doc.getElementById("preferences-categories-container").style.display = "none";
-
-  // Add the passed category's questions to the rating interface.
   addQuestions(category);
-
-  // Show rating interface (with category's questions added from above).
   doc.getElementById("preferences-rating-container").style.display = "block";
   doc.getElementById("backBtn").style.display = "inline-block";
 }
 
 function showCategories() {
   const doc = getDocNode();
+  if (!doc) return;
   doc.getElementById("preferences-categories-container").style.display = "block";
   doc.getElementById("preferences-rating-container").style.display = "none";
   doc.getElementById("backBtn").style.display = "none";
 }
 
-function cleanData(data) {
-  // Remove row if the city or state name is null.
-  const cleaned = {};
-  let rank = 1;
-  for (var i = 1; i <= Object.entries(data).length; i++) {
-    let city = data[i.toString()];
-    if (!(city["cityName"] == "NaN" || city["stateName"] == "NaN")) {
-      city["rank"] = rank;
-      cleaned[rank] = city;
-      rank++; // Next valid (i.e., not NaN) city will be the next rank.
-    }
-  }
-  return cleaned;
-}
-
-let suggestions = {};
-let firstRank = 1;
-
+/* --------------------------- API integration ------------------------- */
 function findCity() {
   const doc = getDocNode();
-  doc.getElementById("findCityBtn").disabled = true;
+  if (!doc) return;
 
-  // Show loading UI
-  const suggestionsDoc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
-  suggestionsDoc.getElementById("suggestions-container").style.display = "block";
-  suggestionsDoc.getElementById("loading-screen").style.pointerEvents = "auto";
-  suggestionsDoc.getElementById("loading-screen").style.opacity = "1.0";
-  smoothScrollTo('suggestions-component', 1000);
+  // Disable button to avoid double clicks
+  const btn = doc.getElementById("findCityBtn");
+  btn.disabled = true;
 
-  const url = (window.API_BASE || "") + "/api/suggest";
+  // Show loading UI on the suggestions component
+  const sugComp = document.querySelector("suggestions-component");
+  if (!sugComp || !sugComp.shadowRoot) {
+    console.error("suggestions-component missing");
+    btn.disabled = false;
+    return;
+  }
+  const sdoc = sugComp.shadowRoot;
+  sdoc.getElementById("suggestions-container").style.display = "block";
+  sdoc.getElementById("loading-screen").style.pointerEvents = "auto";
+  sdoc.getElementById("loading-screen").style.opacity = "1.0";
+
+  // Scroll user to results area
+  smoothScrollTo('suggestions-component', 900);
+
+  // API call (ask for 25)
+  const url = (window.API_BASE || "") + "/api/suggest?limit=25";
 
   fetch(url, {
     method: "POST",
@@ -229,54 +197,53 @@ function findCity() {
       const text = await res.text();
       let data;
       try { data = JSON.parse(text); }
-      catch { throw new Error("Non-JSON response: " + text.slice(0, 200)); }
+      catch { throw new Error("Non-JSON response: " + text.slice(0, 300)); }
       if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
       return data;
     })
     .then((data) => {
-      // Backend now returns { suggestions: { "1": {...}, "2": {...}, ... } }
-      suggestions = cleanData(data["suggestions"]);
+      // Keep object keyed by rank ("1".."25")
+      suggestions = data.suggestions || {};
+      firstRank   = 1;
 
-      // Initialize the suggestions UI
-      firstRank = 1;
-      displayHighlight('1');
-      displayResults(Object.fromEntries(Object.entries(suggestions).slice(0, 5)), "middle");
-      displayResults(Object.fromEntries(Object.entries(suggestions).slice(5, 10)), "right");
-      updateCarousel();
+      // Prime highlight + first two windows (middle and right)
+      window.displayHighlight('1');
 
-      suggestionsDoc.getElementById("loading-screen").style.pointerEvents = "none";
-      suggestionsDoc.getElementById("loading-screen").style.opacity = "0.0";
-      doc.getElementById("findCityBtn").disabled = false;
+      const entries = Object.entries(suggestions);
+      window.displayResults(Object.fromEntries(entries.slice(0, 5)), "middle");
+      window.displayResults(Object.fromEntries(entries.slice(5, 10)), "right");
+      window.updateCarousel();
+
+      // Hide loading
+      sdoc.getElementById("loading-screen").style.pointerEvents = "none";
+      sdoc.getElementById("loading-screen").style.opacity = "0.0";
+
+      btn.disabled = false;
     })
     .catch((err) => {
       console.error(err);
       alert("An error occurred! Please try again.");
-      suggestionsDoc.getElementById("loading-screen").style.pointerEvents = "none";
-      suggestionsDoc.getElementById("loading-screen").style.opacity = "0.0";
-      doc.getElementById("findCityBtn").disabled = false;
+      sdoc.getElementById("loading-screen").style.pointerEvents = "none";
+      sdoc.getElementById("loading-screen").style.opacity = "0.0";
+      btn.disabled = false;
     });
 }
 
+/* --------------------------- web component --------------------------- */
 class Preferences extends HTMLElement {
   constructor() { super(); }
-
   connectedCallback() {
-    const preferencesTemplate = document.createElement('template');
-    preferencesTemplate.innerHTML = preferencesTemplateContent;
-
+    const tpl = document.createElement('template');
+    tpl.innerHTML = preferencesTemplateContent;
     const shadowRoot = this.attachShadow({ mode: 'open' });
-    shadowRoot.appendChild(preferencesTemplate.content);
-
-    // new: bind events inside the shadow root
-    const btnFind = shadowRoot.getElementById('findCityBtn');
-    const btnBack = shadowRoot.getElementById('backBtn');
-    if (btnFind) btnFind.addEventListener('click', findCity);
-    if (btnBack) btnBack.addEventListener('click', showCategories);
+    shadowRoot.appendChild(tpl.content.cloneNode(true));
   }
 }
-
 customElements.define('preferences-component', Preferences);
 
-window.findCity = findCity;
-window.showCategories = showCategories;
-
+// Expose a couple of functions (radio/slider handlers) for inline HTML
+window.rateFeature   = rateFeature;
+window.handleSlider  = handleSlider;
+window.selectCategory= selectCategory;
+window.showCategories= showCategories;
+window.findCity      = findCity;

@@ -1,5 +1,4 @@
-// Reference: https://www.freecodecamp.org/news/reusable-html-components-how-to-reuse-a-header-and-footer-on-a-website/
-
+// suggestions.js (full)
 const suggestionsTemplate = document.createElement('template');
 
 suggestionsTemplate.innerHTML = `
@@ -14,25 +13,17 @@ suggestionsTemplate.innerHTML = `
 
     <section class="suggestions-highlight">
       <div class="suggestions-highlight-content">
-        <div id="highlight" class="container">
-          <!-- Populated by displayHighlight() -->
-        </div>
+        <div id="highlight" class="container"></div>
       </div>
-      <div class="suggestions-highlight-image">
-        <!-- Populated by displayHighlight() -->
-      </div>
+      <div class="suggestions-highlight-image"></div>
+      <button id="savePdf" class="primary" style="position:absolute; top:8px; right:8px;">Save PDF</button>
     </section>
+
     <section class="suggestions-results">
-      <div class="result-group left">
-        <!-- Populated by displayResults() -->
-      </div>
-      <div class="result-group right">
-        <!-- Populated by displayResults() -->
-      </div>
-      <div class="result-group middle">
-        <!-- Populated by displayResults() -->
-      </div>
-      
+      <div class="result-group left"></div>
+      <div class="result-group middle"></div>
+      <div class="result-group right"></div>
+
       <button class="previous" onclick="showResults(false)">
         <i class="fa-solid fa-chevron-left"></i>
       </button>
@@ -43,166 +34,163 @@ suggestionsTemplate.innerHTML = `
   </div>
 `;
 
-function displayHighlight(rank) {
-  const data = suggestions[rank];
-  if (!data) return;
+let suggestions = {};    // {"1": {...}, "2": {...}}
+let firstRank   = 1;     // first card shown in the center group
 
-  const city  = data['cityName'] || '';
-  const state = data['stateName'] || '';
-  let fips    = String(data['stateFIPS'] || '');
+function pad2(x) { return String(x || "").padStart(2, "0"); }
 
-  // pad to 2 (e.g., "1" -> "01")
-  if (fips.length < 2) fips = fips.padStart(2, '0');
+function imagePathFor(sug) {
+  const f2 = pad2(sug.stateFIPS);
+  return `city_images/${f2}000.jpg`;          // <── correct folder
+}
 
-  // use your real folder; add a fallback onerror
-  const image = 'city_images/' + fips + '000.jpg';
+function displayHighlight(rankStr) {
+  const sug = suggestions[rankStr];
+  if (!sug) return;
 
-  const topFeatures = Array.isArray(data['topFeatures']) ? data['topFeatures'] : [];
-  const reasons = topFeatures.map(f => `<li>${FEATURE_SUGGESTION_NAMES[f] || f}</li>`).join('');
+  const city  = sug.cityName || "";
+  const state = sug.stateName || "";
+  const reasons = (sug.topFeatures || []).map(f => FEATURE_SUGGESTION_NAMES[f] || f);
+
+  let reasonsHTML = reasons.map(r => `<li>${r}</li>`).join("");
 
   const element = `
+    <h2 style="position:absolute; top:10px; left:0; color:#DBE4EE;">#${rankStr}</h2>
     <h1>${city},<br />${state}</h1>
-    <h2>#${rank}</h2>
-    <div class="list-container">
-      <p>You might like ${city} because of its...</p>
-      <ul>${reasons}</ul>
-    </div>
+    <p>You might like ${city} because of its...</p>
+    <ul>${reasonsHTML}</ul>
   `;
 
-  const imgElement = `<img src="${image}" onerror="this.src='assets/city.jpg'"/>`;
+  const imgEl = `
+    <img src="${imagePathFor(sug)}"
+         alt="City image"
+         onerror="this.style.display='none';" />
+  `;
 
   const doc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
   doc.getElementById("highlight").innerHTML = element;
-  doc.querySelector("div.suggestions-highlight-image").innerHTML = imgElement;
+  doc.querySelector("div.suggestions-highlight-image").innerHTML = imgEl;
 }
 
-// make helpers visible to other components / shadow trees
-window.displayHighlight = displayHighlight;
-window.displayResults   = displayResults;
-window.updateCarousel   = updateCarousel;
-window.showResults      = showResults;  
+function displayResults(sliceObj, container) {
+  let html = ``;
+  for (const [rank, sug] of Object.entries(sliceObj)) {
+    const city  = sug.cityName || "";
+    const state = sug.stateName || "";
+    const img   = imagePathFor(sug);
+    const score = (sug.scaledScore != null) ? `<div style="position:absolute; bottom:8px; right:10px; color:#DBE4EE; opacity:.85; font-size:14px;">${sug.scaledScore}</div>` : "";
 
-
-/**
- * @param container Either "left", "middle", or "right".
- */
-
-function displayResults(results, container) {
-  const entries = Object.entries(results || {});
-  const html = entries.map(([_, item]) => {
-    const city  = item?.cityName || '';
-    const state = item?.stateName || '';
-    const rank  = item?.rank || '';
-    let fips    = String(item?.stateFIPS || '');
-    if (fips.length < 2) fips = fips.padStart(2, '0');
-
-    const image = 'city_images/' + fips + '000.jpg';
-
-    return `
-      <div class="result" onclick="displayHighlight(${rank})">
-        <img src="${image}" onerror="this.src='assets/city.jpg'"/>
+    html += `
+      <div class="result" onclick="displayHighlight('${rank}')">
+        <img src="${img}" onerror="this.style.display='none';" />
         <div class="tint"></div>
         <h1>${city}, ${state}</h1>
         <h2>${rank}</h2>
+        ${score}
       </div>`;
-  }).join('');
+  }
 
   const doc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
   doc.querySelector("div.result-group." + container).innerHTML = html;
 }
 
-/**
- * Helper function to replace class.
- * @param node Element node to replace classes.
- * @param oldClass Class that will be replaced.
- * @param newClass Class that will be replacing.
- */
+function updateCarousel() {
+  const doc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
+  const total = Object.keys(suggestions).length;
+
+  // left button only if there are previous items
+  doc.querySelector("section.suggestions-results button.previous").style.display =
+    (firstRank > 1) ? "block" : "none";
+
+  // right button only if there are more after this window
+  doc.querySelector("section.suggestions-results button.next").style.display =
+    (firstRank + 5 <= total) ? "block" : "none";
+}
+
 function replaceClass(node, oldClass, newClass) {
   node.classList.remove(oldClass);
   node.classList.add(newClass);
 }
 
-/**
- * Animates transitioning to next or previous results.
- * @param next If true, show next results; false, show previous results.
- */
 function showResults(next) {
   const doc = document.getElementsByTagName("suggestions-component")[0].shadowRoot;
+  const total = Object.keys(suggestions).length;
 
-  // Disable the transition button.
-  var buttonNodes = doc.querySelectorAll("section.suggestions-results button");
-  buttonNodes.forEach((node) => {
-    node.disabled = true;
-  });
-
-  const left = doc.querySelector(".result-group.left");
-  const right = doc.querySelector(".result-group.right");
+  const left   = doc.querySelector(".result-group.left");
+  const right  = doc.querySelector(".result-group.right");
   const middle = doc.querySelector(".result-group.middle");
 
-  // Note: CSS attribute adds transition delay to below translation.
-  if (next) {
-    // Slide middle to left, right to middle, and move left to right.
-    middle.style.transform = "translateX(-100%)";
-    right.style.transform = "translateX(0)";
-    left.style.opacity = "0.0";
-    left.style.transform = "translateX(100%)";
-  } else {
-    // Slide middle to right, left to middle, and move right to left.
-    middle.style.transform = "translateX(100%)";
-    left.style.transform = "translateX(0)";
-    right.style.opacity = "0.0";
-    right.style.transform = "translateX(-100%)";
-  }
+  const btns = doc.querySelectorAll("section.suggestions-results button");
+  btns.forEach(b => (b.disabled = true));
 
-  setTimeout(() => {
-    // Update classes to reflect new positions.
-    if (next) {
+  if (next && firstRank + 5 <= total) {
+    middle.style.transform = "translateX(-100%)";
+    right.style.transform  = "translateX(0)";
+    left.style.opacity     = "0";
+    left.style.transform   = "translateX(100%)";
+
+    setTimeout(() => {
       replaceClass(middle, "middle", "left");
       replaceClass(right, "right", "middle");
       replaceClass(left, "left", "right");
 
-      left.style.opacity = "1.0";
-      
+      left.style.opacity = "1";
       firstRank += 5;
 
-      // Initialize the right.
-      if (!(firstRank+5 > Object.entries(suggestions).length)) {
-        displayResults(Object.fromEntries(Object.entries(suggestions).slice(firstRank+4, firstRank+9)), "right");
+      // prepare the new right window
+      const start = firstRank + 4;
+      const end   = Math.min(firstRank + 9, total);
+      if (start < end) {
+        const slice = Object.fromEntries(Object.entries(suggestions).slice(start, end));
+        displayResults(slice, "right");
       }
-    } else {
+
+      updateCarousel();
+      btns.forEach(b => (b.disabled = false));
+    }, 750);
+  } else if (!next && firstRank > 1) {
+    middle.style.transform = "translateX(100%)";
+    left.style.transform   = "translateX(0)";
+    right.style.opacity    = "0";
+    right.style.transform  = "translateX(-100%)";
+
+    setTimeout(() => {
       replaceClass(middle, "middle", "right");
       replaceClass(left, "left", "middle");
       replaceClass(right, "right", "left");
 
-      right.style.opacity = "1.0";
-
+      right.style.opacity = "1";
       firstRank -= 5;
 
-      // Initialize the left.
-      if (!(firstRank == 1)) {
-        displayResults(Object.fromEntries(Object.entries(suggestions).slice(firstRank-6, firstRank)), "left");
+      // prepare the new left window
+      if (firstRank > 1) {
+        const start = Math.max(firstRank - 6, 0);
+        const end   = firstRank - 1;
+        const slice = Object.fromEntries(Object.entries(suggestions).slice(start, end));
+        displayResults(slice, "left");
       }
-    }
 
-    // Update carousel buttons.
-    updateCarousel();
-
-    // Re-enable the transition button.
-    buttonNodes.forEach((node) => {
-      node.disabled = false;
-    });
-  }, 750);
+      updateCarousel();
+      btns.forEach(b => (b.disabled = false));
+    }, 750);
+  }
 }
 
 class Suggestions extends HTMLElement {
-  constructor() {
-    super();
-  }
-
+  constructor() { super(); }
   connectedCallback() {
     const shadowRoot = this.attachShadow({ mode: 'open' });
-    shadowRoot.appendChild(suggestionsTemplate.content);
+    shadowRoot.appendChild(suggestionsTemplate.content.cloneNode(true));
+
+    // optional save hook (keeps your existing UI button)
+    const btn = shadowRoot.getElementById("savePdf");
+    if (btn) btn.addEventListener("click", () => window.print());
   }
 }
-
 customElements.define('suggestions-component', Suggestions);
+
+// expose for other components
+window.displayHighlight = displayHighlight;
+window.displayResults   = displayResults;
+window.updateCarousel   = updateCarousel;
+window.showResults      = showResults;

@@ -205,3 +205,33 @@ def suggest_top_cities(
         state = str(frame.loc[i, STATE_COL]) if STATE_COL else ""
         out.append({"cityName": city, "stateName": state, "score": float(scores[pos])})
     return out
+
+def score_all_cities(prefs: Dict[str, Union[int, float]]) -> List[float]:
+    """
+    Returns raw scores for every row in df_master using the same weighting rules
+    as suggest_top_cities(). Order matches df_master.index.
+    """
+    # build gold_ranges exactly like suggest_top_cities
+    df = df_master.drop(columns=[c for c in drop_vars if c in df_master.columns]).copy()
+    for v in invert_vars:
+        if v in df.columns:
+            df[v] = 1 - df[v]
+    gold_ranges = {
+        v: float(df[v].max() - df[v].min())
+        for v in gold_vars if v in df.columns
+    }
+
+    # relevance weights
+    rel_weights: Dict[str, Union[float, Dict[str, float]]] = {}
+    for var, pca_w in PCA_SCORES.items():
+        if var not in df.columns:
+            continue
+        user_imp = float(prefs.get(var, 0))
+        if var in gold_ranges:
+            rel_weights[var] = {"ideal": user_imp, "pca": pca_w}
+        else:
+            rel_weights[var] = user_imp * pca_w
+
+    # row scores
+    scores = df.apply(lambda r: _row_score(r, rel_weights, gold_ranges), axis=1)
+    return scores.tolist()

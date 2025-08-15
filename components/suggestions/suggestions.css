@@ -32,6 +32,10 @@ section.suggestions-highlight {
   position: relative;
   text-align: center;
 }
+
+section.suggestions-highlight h1 { font-size: clamp(28px, 3.2vw, 54px); margin: 0; }
+section.suggestions-highlight h2 { font-size: clamp(18px, 2.0vw, 28px); margin: 0; }
+
 div.suggestions-highlight-content {
   width: 650px;
   height: 100%;
@@ -102,11 +106,11 @@ section.suggestions-results button {
 }
 section.suggestions-results button:hover { cursor: pointer; }
 section.suggestions-results button.previous {
-  left: 0;
+  left: 0; width: 60px;
   background-image: linear-gradient(to right, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
 }
 section.suggestions-results button.next {
-  right: 0;
+  right: 0; width: 60px;
   background-image: linear-gradient(to left, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
 }
 section.suggestions-results button i { transition: transform 0.5s; }
@@ -115,24 +119,30 @@ section.suggestions-results button.next:hover i     { transform: translateX(5px)
 
 /* groups slide left/right */
 div.result-group {
-  width: 100%;
-  height: 100%;
   position: absolute;
+  inset: 0 60px;
+  display: flex;
+  gap: 12px;
+  padding: 0;
   transition: transform 0.75s;
+  box-sizing: border-box;
 }
-div.result-group:nth-of-type(1) { transform: translateX(-100%); }
-div.result-group:nth-of-type(2) { transform: translateX(100%); }
+
+div.result-group.left   { transform: translateX(-100%); }
+div.result-group.middle { transform: translateX(0); }
+div.result-group.right  { transform: translateX(100%); }
 
 /* result cards (5-up) */
 div.result {
-  width: 20%;
+  flex: 0 0 calc(20% - 9.6px);
+  min-width: 0;
   height: 100%;
-  display: inline-block;
-  border: none;
   background-color: #154977;
   overflow: hidden;
   position: relative;
+  border: none;
 }
+
 div.result:hover { cursor: pointer; }
 div.result img {
   min-width: 100%;
@@ -146,6 +156,10 @@ div.result .tint {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
   background: linear-gradient(to top, rgba(0,0,0,.45), rgba(0,0,0,.1));
 }
+
+div.result .score-badge { z-index: 2; }
+div.result .tint { z-index: 1; }
+div.result img  { z-index: 0; }
 
 /* City name */
 div.result h1 {

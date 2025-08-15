@@ -1,29 +1,18 @@
-// components/preferences/preferences.js
-// -------------------------------------------------------
-// Renders the questionnaire and calls the /api/suggest endpoint.
-// Expects data constants from components/preferences/data.js.
-// Expects suggestions UI helpers from components/suggestions/suggestions.js
-// -------------------------------------------------------
-
-// Default radio choice (importance) and in-memory ratings store
 const DEFAULT_RATING = "1";
 let   ratings        = getDefaultRatings();
-
-// These two are shared with suggestions.js via the global lexical env.
-let suggestions = {};
-let firstRank   = 1;
+window.ratings       = ratings; // expose for suggestions.js (reasons fallback)
 
 // Build the category button strip once
 const categoryButtons = createCategoryButtons(FEATURE_CATEGORIES);
 
 // Template
 const preferencesTemplateContent = `
-  <link rel="stylesheet" type="text/css" href="assets/fontawesome-6.5.2/css/all.min.css">
-  <link rel="stylesheet" type="text/css" href="css/global.css">
-  <link rel="stylesheet" type="text/css" href="components/preferences/preferences.css">
+  <link rel="stylesheet" href="assets/fontawesome-6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="components/preferences/preferences.css">
 
   <div class="preferences-container">
-    <h1>Preferences</h1>
+    <h1>Preferences:</h1>
 
     <div id="preferences-categories-container">
       <p class="lead">Answer questions in each category for the best result!</p>
@@ -46,7 +35,6 @@ const preferencesTemplateContent = `
 
 /* ----------------------------- helpers ----------------------------- */
 function getDocNode() {
-  // <tools-component> → <preferences-component> (both shadow DOM)
   const tools = document.querySelector("tools-component");
   if (!tools || !tools.shadowRoot) return null;
   const pref = tools.shadowRoot.querySelector("preferences-component");
@@ -55,7 +43,6 @@ function getDocNode() {
 }
 
 function getDefaultRatings() {
-  // For gold features, seed the slider to the median provided in GOLDILOCK_FEATURE_RANGES
   const featureRatings = {};
   Object.entries(FEATURES_CATEGORIZED).forEach(([key]) => {
     if (key in GOLDILOCK_FEATURE_RANGES) {
@@ -70,6 +57,7 @@ function getDefaultRatings() {
 
 function rateFeature(inputNode) {
   ratings[inputNode.name] = inputNode.value;
+  window.ratings = ratings;
 }
 
 function handleSlider(sliderNode) {
@@ -87,7 +75,6 @@ function createCategoryButtons(categories) {
 
 /* --------------------------- questionnaire -------------------------- */
 function addQuestions(category) {
-  // All features that belong to this category
   const features = [];
   Object.entries(FEATURES_CATEGORIZED).forEach(([feature, cat]) => {
     if (cat === category) features.push(feature);
@@ -107,9 +94,7 @@ function addQuestions(category) {
         <div class="response-row">
           <div class="text"><p>${question} ${disp}?</p></div>
           <div class="right-side">
-            <div class="labels">
-              <p>Not Important</p><p>Very Important</p>
-            </div>
+            <div class="labels"><p>Not Important</p><p>Very Important</p></div>
             <div class="buttons">
               <input type="radio" name="${feature}" value="1" onchange="rateFeature(this)" ${checked[0]}>
               <input type="radio" name="${feature}" value="2" onchange="rateFeature(this)" ${checked[1]}>
@@ -130,8 +115,7 @@ function addQuestions(category) {
               <p class="slider-value">
                 <span id="${feature}-display">${val}</span> ${units}
               </p>
-              <input type="range"
-                     min="${minVal}" max="${maxVal}" value="${val}"
+              <input type="range" min="${minVal}" max="${maxVal}" value="${val}"
                      class="slider" name="${feature}" oninput="handleSlider(this)">
             </div>
           </div>
@@ -166,11 +150,10 @@ function findCity() {
   const doc = getDocNode();
   if (!doc) return;
 
-  // Disable button to avoid double clicks
   const btn = doc.getElementById("findCityBtn");
   btn.disabled = true;
 
-  // Show loading UI on the suggestions component
+  // Suggestions overlay
   const sugComp = document.querySelector("suggestions-component");
   if (!sugComp || !sugComp.shadowRoot) {
     console.error("suggestions-component missing");
@@ -182,16 +165,23 @@ function findCity() {
   sdoc.getElementById("loading-screen").style.pointerEvents = "auto";
   sdoc.getElementById("loading-screen").style.opacity = "1.0";
 
-  // Scroll user to results area
+  // Provide a local smoothScrollTo if not already defined globally
+  if (!window.smoothScrollTo) {
+    window.smoothScrollTo = function (selector, offsetPx = 20) {
+      const el = typeof selector === "string" ? document.querySelector(selector) : selector;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.pageYOffset - offsetPx;
+      window.scrollTo({ top, behavior: "smooth" });
+    };
+  }
+
   smoothScrollTo('suggestions-component', 900);
 
-  // API call (ask for 25)
-  const url = (window.API_BASE || "") + "/api/suggest?limit=25";
-
+  const url = (window.API_BASE || "") + "/api/suggest";
   fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ preferences: ratings })
+    body: JSON.stringify({ preferences: ratings, limit: 25 })
   })
     .then(async (res) => {
       const text = await res.text();
@@ -202,22 +192,15 @@ function findCity() {
       return data;
     })
     .then((data) => {
-      // Keep object keyed by rank ("1".."25")
-      suggestions = data.suggestions || {};
-      firstRank   = 1;
+      window.suggestions = data.suggestions || {};
+      window.firstRank   = 1;
 
-      // Prime highlight + first two windows (middle and right)
-      window.displayHighlight('1');
+      // One clean init only
+      initSuggestionsUI();
 
-      const entries = Object.entries(suggestions);
-      window.displayResults(Object.fromEntries(entries.slice(0, 5)), "middle");
-      window.displayResults(Object.fromEntries(entries.slice(5, 10)), "right");
-      window.updateCarousel();
-
-      // Hide loading
+      // hide overlay
       sdoc.getElementById("loading-screen").style.pointerEvents = "none";
       sdoc.getElementById("loading-screen").style.opacity = "0.0";
-
       btn.disabled = false;
     })
     .catch((err) => {
@@ -231,7 +214,6 @@ function findCity() {
 
 /* --------------------------- web component --------------------------- */
 class Preferences extends HTMLElement {
-  constructor() { super(); }
   connectedCallback() {
     const tpl = document.createElement('template');
     tpl.innerHTML = preferencesTemplateContent;
@@ -241,9 +223,9 @@ class Preferences extends HTMLElement {
 }
 customElements.define('preferences-component', Preferences);
 
-// Expose a couple of functions (radio/slider handlers) for inline HTML
-window.rateFeature   = rateFeature;
-window.handleSlider  = handleSlider;
-window.selectCategory= selectCategory;
-window.showCategories= showCategories;
-window.findCity      = findCity;
+// Expose handlers used inline
+window.rateFeature    = rateFeature;
+window.handleSlider   = handleSlider;
+window.selectCategory = selectCategory;
+window.showCategories = showCategories;
+window.findCity       = findCity;

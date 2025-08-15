@@ -1,45 +1,32 @@
-/*  CityFinder – front-end helpers
-    --------------------------------
-  Picks the right API base (Render in prod, same origin in dev)
-  Exposes `window.API_BASE` for all components
-*/
-
 (() => {
-  /* Detect where the SPA is running
-     ─────────────────────────────── */
-  const API_BASE = location.hostname.includes('github.io')
-    ? 'https://dream-city-finder.onrender.com'   //
-    : '';                                     // dev: same-origin Flask
-
-  window.API_BASE = API_BASE;                 // global for fetch() calls
-
-  /* Smooth-scroll utility (unchanged)
-     ───────────────────────────────── */
-  window.smoothScrollTo = function (target, duration = 600) {
-    const elem = document.querySelector(target);
-    if (!elem) return;
-
-    const elementHeight = elem.offsetHeight;
-    const windowHeight  = window.innerHeight;
-    const targetPos     = elem.offsetTop - (windowHeight - elementHeight) / 2;
-    const startPos      = window.pageYOffset;
-    const distance      = targetPos - startPos;
-    let   startTime     = null;
-
-    const easeQuadIO = (t, b, c, d) => {
-      t /= d / 2;
-      if (t < 1) return (c / 2) * t * t + b;
-      t--;
-      return (-c / 2) * (t * (t - 2) - 1) + b;
-    };
-
-    const step = ts => {
-      if (!startTime) startTime = ts;
-      const ms = ts - startTime;
-      window.scrollTo(0, easeQuadIO(ms, startPos, distance, duration));
-      if (ms < duration) requestAnimationFrame(step);
-    };
-
-    requestAnimationFrame(step);
+  // Global smooth scroll helper (used by index.html and preferences.js)
+  window.smoothScrollTo = window.smoothScrollTo || function (selector, offsetPx = 20) {
+    const el = typeof selector === "string" ? document.querySelector(selector) : selector;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.pageYOffset - offsetPx;
+    window.scrollTo({ top, behavior: "smooth" });
   };
+
+  // Ensure API_BASE exists for fetch calls
+  window.API_BASE = window.API_BASE || "";
+
+  document.addEventListener("DOMContentLoaded", () => {
+    // Wire the “Get started” / hero button (supports id or data-attribute)
+    const getStarted =
+      document.querySelector('[data-action="get-started"]') ||
+      document.getElementById("getStarted");
+
+    if (getStarted) {
+      getStarted.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.smoothScrollTo("preferences-component", 20);
+      });
+    }
+
+    // Make sure a suggestions-component exists (append once if missing)
+    if (!document.querySelector("suggestions-component")) {
+      const sc = document.createElement("suggestions-component");
+      document.body.appendChild(sc);
+    }
+  });
 })();

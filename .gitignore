@@ -1,4 +1,5 @@
 .env
 __pycache__/
 api/__pycache__/
-note.txtdevelopment/data_engineering/arwen/Picture_API.ipynb
+note.txt
+development/data_engineering/arwen/Picture_API.ipynb

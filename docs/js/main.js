@@ -39,13 +39,12 @@ window.smoothScrollTo = window.smoothScrollTo || function smoothScrollTo(selecto
 
   // API base auto-detect: localhost -> local Flask, otherwise Render
 (function setApiBase() {
-  const isLocal  = location.hostname === "127.0.0.1" || location.hostname === "localhost";
-  const isPages  = /\.github\.io$/i.test(location.hostname);
-  // Your actual Render URL:
+  const isLocal = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+  // Your actual Render URL — update this if your service name changes:
   const renderURL = "https://dream-city-finder.onrender.com";
-  window.API_BASE = isLocal ? "" : (isPages ? renderURL : renderURL);
+  // Local dev uses Flask on the same origin (empty base). Pages & anything else uses Render.
+  window.API_BASE = isLocal ? "" : renderURL;
 })();
-
 
   // ensure top on first load
   document.addEventListener("DOMContentLoaded", () => {

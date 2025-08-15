@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 app = Flask(__name__, static_folder=None)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("cityfinder")
 
@@ -326,6 +326,10 @@ def favicon():
     if ico.exists():
         return send_from_directory(assets_dir, "favicon.ico")
     return ("", 204)
+
+@app.get("/api/health")
+def api_health():
+    return jsonify({"ok": True})
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

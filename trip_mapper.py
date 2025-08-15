@@ -9,15 +9,10 @@ from typing import Dict, List, Tuple
 import googlemaps
 from googlemaps import exceptions as gmaps_exc
 
-# ---------------------------------------------------------------------
-# Module logger
-# ---------------------------------------------------------------------
 log = logging.getLogger("trip_mapper")
 
 
-# ---------------------------------------------------------------------
-# Small helpers
-# ---------------------------------------------------------------------
+# ------------------------- distance helpers -------------------------
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance in meters."""
     R = 6371000.0
@@ -28,18 +23,6 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
          math.sin(dlon / 2) ** 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
-
-
-def _dedupe_preserve_order(items: List[str]) -> List[str]:
-    """Case/space-insensitive de-dupe while preserving first occurrence."""
-    seen = set()
-    out: List[str] = []
-    for s in items:
-        key = " ".join(s.split()).lower()
-        if key and key not in seen:
-            seen.add(key)
-            out.append(s)
-    return out
 
 
 def _build_distance_matrix(coords: Dict[str, Tuple[float, float]]
@@ -55,6 +38,7 @@ def _build_distance_matrix(coords: Dict[str, Tuple[float, float]]
     return d
 
 
+# ------------------------- tour construction ------------------------
 def _nearest_neighbor(start: str, nodes: List[str],
                       dist: Dict[Tuple[str, str], float]) -> List[str]:
     """Greedy seed path (open tour)."""
@@ -92,36 +76,53 @@ def _two_opt(path: List[str],
     return path
 
 
-# ---------------------------------------------------------------------
-# Geocoding (Google only)
-# ---------------------------------------------------------------------
+# ---------------------------- geocoding ------------------------------
 def _gmaps_client() -> googlemaps.Client:
     api_key = os.getenv("GMAPS_KEY", "").strip()
     if not api_key:
         raise RuntimeError("GMAPS_KEY not set")
-    return googlemaps.Client(key=api_key)
+
+    # Configure timeouts on the client (correct place for googlemaps lib)
+    connect_timeout = float(os.getenv("GMAPS_CONNECT_TIMEOUT", "5"))
+    read_timeout    = float(os.getenv("GMAPS_READ_TIMEOUT", "5"))
+    retry_timeout   = float(os.getenv("GMAPS_RETRY_TIMEOUT", "60"))
+
+    return googlemaps.Client(
+        key=api_key,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        retry_timeout=retry_timeout,
+    )
 
 
-def _geocode_one(q: str, gmaps: googlemaps.Client, timeout: float = 10.0
-                 ) -> Tuple[float, float]:
+def _dedupe_preserve_order(items: List[str]) -> List[str]:
+    """Case/space-insensitive de-dupe while preserving first occurrence."""
+    seen = set()
+    out: List[str] = []
+    for s in items:
+        key = " ".join(s.split()).lower()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(s)
+    return out
+
+
+def _geocode_one(q: str, gmaps: googlemaps.Client) -> Tuple[float, float]:
     """
-    Geocode a single query with small, targeted retries for rate errors.
-    Raises RuntimeError with a concise message if unsuccessful.
+    Geocode a single query with small, targeted retries for quota/rate hiccups.
+    NOTE: timeouts are set on the client; there is NO per-call timeout kwarg.
     """
-    # Modest, bounded backoff for rate/limit hiccups
-    delays = [0.0, 0.5, 1.0, 2.0]  # total <= ~3.5s
+    delays = [0.0, 0.5, 1.0, 2.0]  # bounded backoff
     last_err = None
     for delay in delays:
         if delay:
             time.sleep(delay)
         try:
-            results = gmaps.geocode(q, timeout=timeout)  # -> list
+            results = gmaps.geocode(q)  # <-- no timeout kwarg here
             if not results:
                 raise RuntimeError(f"No geocoding results for '{q}'")
             loc = results[0]["geometry"]["location"]
-            lat = float(loc["lat"])
-            lng = float(loc["lng"])
-            return (lat, lng)
+            return float(loc["lat"]), float(loc["lng"])
         except gmaps_exc.Timeout as e:
             last_err = f"Geocode timeout for '{q}'"
             log.warning(last_err)
@@ -133,25 +134,19 @@ def _geocode_one(q: str, gmaps: googlemaps.Client, timeout: float = 10.0
             msg = (e.args[1] if len(e.args) > 1 else "")
             last_err = f"Geocode API error for '{q}': {status} {msg}"
             log.warning(last_err)
-            # Retry only for quota/rate/perf errors
             if str(status) not in {"OVER_QUERY_LIMIT", "RESOURCE_EXHAUSTED"}:
                 break
         except Exception as e:
             last_err = f"Unexpected geocode error for '{q}': {e}"
             log.warning(last_err)
             break
-
     raise RuntimeError(last_err or f"Failed to geocode '{q}'")
 
 
 def _geocode_many(names: List[str], gmaps: googlemaps.Client
                   ) -> Dict[str, Tuple[float, float]]:
-    """
-    Geocode many names, preserving original labels and caching within request.
-    """
     out: Dict[str, Tuple[float, float]] = {}
     cache: Dict[str, Tuple[float, float]] = {}
-
     for name in names:
         if not name:
             continue
@@ -162,13 +157,10 @@ def _geocode_many(names: List[str], gmaps: googlemaps.Client
         latlng = _geocode_one(name, gmaps)
         cache[key] = latlng
         out[name] = latlng
-
     return out
 
 
-# ---------------------------------------------------------------------
-# Public API used by Flask
-# ---------------------------------------------------------------------
+# ----------------------------- public API ----------------------------
 def build_route(home: str, stops: List[str]) -> Dict:
     """
     Compute a looped route:
@@ -180,7 +172,6 @@ def build_route(home: str, stops: List[str]) -> Dict:
     - Uses Google Geocoding only (no local fallback).
     - NN seed + 2-opt refinement.
     """
-    # Normalize inputs
     home = " ".join((home or "").split())
     if not home:
         raise ValueError("Home city is required")
@@ -188,20 +179,19 @@ def build_route(home: str, stops: List[str]) -> Dict:
     stops = [s for s in [(" ".join((s or "").split())) for s in (stops or [])] if s]
     stops = _dedupe_preserve_order(stops)
 
-    # Compose the full list, ensuring home is included exactly once at start
+    # Compose list with home exactly once at start
     names: List[str] = [home] + [s for s in stops if s.lower() != home.lower()]
+    gmaps = _gmaps_client()
+
     if len(names) < 2:
-        # Nothing to route to — just return the single point loop
-        gmaps = _gmaps_client()
         coords_single = _geocode_many([home], gmaps)
         lat, lon = coords_single[home]
         return {"coordinates": {home: [lat, lon]}, "order": [home, home]}
 
     # Geocode all
-    gmaps = _gmaps_client()
     coords = _geocode_many(names, gmaps)
 
-    # Distance matrix
+    # Distances
     dist = _build_distance_matrix(coords)
 
     # Build tour (open), then close by returning home
@@ -210,7 +200,5 @@ def build_route(home: str, stops: List[str]) -> Dict:
     if best[-1] != home:
         best.append(home)
 
-    # Coordinates as [lat, lon] arrays for the front-end
     coords_out = {k: [coords[k][0], coords[k][1]] for k in coords.keys()}
-
     return {"coordinates": coords_out, "order": best}

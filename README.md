@@ -1,12 +1,15 @@
 # CityFinder v2
 
-Interactive web app which:
-- **Recommends your dream city based on your preferences and needs** using reputable data and a from-scratch algorthm.
-- **Maps the optimal path for your next trip** using haversine and 2-opt, handles plain-text location names.
+An interactive web app that:
 
-The city recommender portion was orinally developed in Spring 2024 as a Data Science Capstone by myself, Jovan Yoshioka, and Arwen Roach, original repo: https://github.com/jovanyoshioka/CityFinder.
-The trip mapping portion was originally devloped in 2023 as my first geo-focused personal project.
-All data are up to date as of 2024, with source links at the bottom of this document.
+- **Finds your dream city** — scores 3,000+ U.S. cities on dozens of lifestyle, economic, and climate factors using a custom algorithm built from reputable data.
+- **Plans the optimal route for your next trip** — solves the Traveling Salesman Problem using haversine + 2-opt, works with plain-text location names.
+
+The city recommender was originally developed (Spring 2024) as a Data Science Capstone by myself, Jovan Yoshioka, and Arwen Roach — [original repo](https://github.com/jovanyoshioka/CityFinder).  
+The trip mapper began in 2023 as my first geo-focused personal project.  
+All datasets are current to Spring 2024 - full source list below.
+
+---
 
 ## Demo:
 | What you’ll see | Link |
@@ -14,45 +17,64 @@ All data are up to date as of 2024, with source links at the bottom of this docu
 | **Live site** | <https://KoobDS.github.io/dream-city-finder> |
 | **n-min walk-through** | [Demo video](https://youtu.be/...) |
 
-## How the algorithms work:
+---
 
-- City recommender: ...
-- Trip mapper: ...
+## How it works
+
+- **City recommender**  
+  1. Preprocess dozens of datasets spanning socioeconomic factors, climate, housing, amenities, and more.  
+  2. Reduce correlated variables via PCA + VIF filtering.  
+  3. Score each city on “Goldilocks” matching to user preferences.  
+  4. Scale results to a global 0–100 and surface the top N cities with the most influential matching features.
+
+- **Trip mapper**  
+  1. Geocode each stop (Google Maps API).  
+  2. Compute pairwise haversine distances.  
+  3. Build an initial route via Nearest-Neighbor.  
+  4. Improve with 2-opt swapping until no shorter path is found (significantly faster than tested  ML models).
+
+---
 
 ## Tech stack:
 | Layer | Main libs / services |
 |-------|----------------------|
-| **Front-end** | <img alt="HTML" src="https://img.shields.io/badge/-HTML5-E34F26?logo=html5&logoColor=white"> <img alt="CSS" src="https://img.shields.io/badge/-CSS3-1572B6?logo=css3&logoColor=white"> <img alt="JS" src="https://img.shields.io/badge/-JavaScript-F7DF1E?logo=javascript&logoColor=black">, **Web Components**, **Leaflet** |
-| **Back-end** | <img alt="Flask" src="https://img.shields.io/badge/-Flask-000?logo=flask">  (flask-cors, python-dotenv) |
-| **Data / ML** | <img alt="pandas" src="https://img.shields.io/badge/-pandas-150458?logo=pandas&logoColor=white">  <nobr><img alt="scikit-learn" src="https://img.shields.io/badge/-scikit--learn-F7931E?logo=scikit-learn&logoColor=black"></nobr> |
-| **External APIs** | <img alt="Google Maps" src="https://img.shields.io/badge/-Google Maps-4285F4?logo=googlemaps&logoColor=white"> Geocoding |
-| **Hosting** | <img alt="Render" src="https://img.shields.io/badge/-Render-46E3B7?logo=render&logoColor=white"> (Python API) · <img alt="GitHub Pages" src="https://img.shields.io/badge/-GitHub Pages-181717?logo=github"> (static SPA) |
+| **Front-end** | HTML5, CSS3, JavaScript, Web Components, Leaflet |
+| **Back-end** | Flask (flask-cors, python-dotenv) |
+| **Data / ML** | pandas, scikit-learn |
+| **External API** | Google Maps Geocoding |
+| **Hosting** | Render (Python API) · GitHub Pages (static SPA) |
 
-## Layout:
+---
+
+## Project layout
 
 | Path | Contents |
 |------|----------|
-| `/api/` | Flask app – `app.py`, production WSGI start |
-| `/components/` | Reusable Web-Component panels (`tools`, `suggestions`, `trip-planner` ...) |
-| `/data/` | **CityMaster1.9.csv**, **PCA_1.3.csv**, **feature_handling.csv** (processed datasets) |
-| `/city_images/` | One image per state – used in suggestion cards |
-| `/assets/` | Fonts, photos |
-| `suggestion_algo.py` | PCA + Goldilocks + VIF recommender (pure Python) |
-| `trip_mapper.py` | TSP Nearest-Neighbor + 2-Opt solver (uses Google Maps API) |
-| `js/main.js` | Environment-aware API base + smooth-scroll helper |
-| `requirements.txt` | Runtime Python dependencies |
-| `runtime.txt` | Pins Python 3.11 for Render |
+| `/api/` | Flask API (`app.py`) + WSGI start for Render |
+| `/assets/` | Fonts, icons, photos |
+| `/components/` | Web-Component panels (`tools`, `suggestions`, `trip-planner`, ...) |
+| `/css/` | Global and component-specific stylesheets |
+| `/data/` | Production datasets: **CityMaster1.9.5.csv**, **PCA_1.3.csv**, **feature_handling.csv** |
+| `/development/` | Notebooks from algorithm development and data engineering |
+| `/js/` | Main JavaScript file including API base + smooth-scroll helper |
+| `requirements.txt` | Python dependencies |
+| `suggestion_algo.py` | PCA + Goldilocks + VIF recommender |
+| `trip_mapper.py` | TSP solver (Nearest-Neighbor + 2-Opt) |
 | `README.md` | This file |
 
-## Division of work (2024 Capstone):
+---
+
+## 2024 Capstone division of work
 
 | Name | Key contributions |
 |-------|--------|
-| Benjamin Koob (me) | Data collection/engineering, Recommendation algorithm, Trip mapper algorithm (prior to capstone), Web/algorithm improvements (since capstone) |
-| Jovan Yoshioka | Data collection/engineering, Web app initial development |
-| Arwen Roach | Data collection/engineering, PCA analysis |
+| **Benjamin Koob** | Data engineering, recommendation algorithm, trip mapper algorithm, post-capstone web/app improvements |
+| **Jovan Yoshioka** | Data engineering, initial web app build |
+| **Arwen Roach** | Data engineering, PCA analysis |
 
-## Quick-start for devs
+---
+
+## Quick-start (local dev)
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/dream-city-finder.git
@@ -64,8 +86,12 @@ python -m flask --app api/app.py run
 ```
 then open http://localhost:5000
 
+---
+
 ## Data source links (collected Spring 2024):
 
+<details>
+<summary>Click to expand full list</summary>
 - https://www2.census.gov/programs-surveys/cps/methodology/2015%20Geography%20Cover.pdf 
 - https://cps.ipums.org/cps/codes/metfips_2014onward_codes.shtml#note 
 - https://transition.fcc.gov/oet/info/maps/census/fips/fips.txt
@@ -87,3 +113,4 @@ then open http://localhost:5000
 - https://data.ed.gov/dataset?q=graduation+rate+by+FIPS
 - https://nces.ed.gov/programs/digest/d21/tables/dt21_219.10.asp
 - https://ucr.fbi.gov/crime-in-the-u.s/2019/crime-in-the-u.s.-2019/downloads/cius2019datatables-1.zip
+</details>

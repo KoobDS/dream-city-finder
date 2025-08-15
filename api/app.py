@@ -286,13 +286,34 @@ def api_suggest():
     return jsonify({"suggestions": suggestions})
 
 
-@app.post("/api/route")
+@app.route("/api/route", methods=["POST", "OPTIONS"])
 def api_route():
-    from trip_mapper import build_route  # local import during dev
+    # Let CORS preflight through (avoids Render 404 on OPTIONS)
+    if request.method == "OPTIONS":
+        return ("", 204)
+
     payload = request.get_json(silent=True) or {}
-    home  = payload.get("home", "")
-    stops = payload.get("stops", [])
-    return jsonify(build_route(home, stops))
+    home  = (payload.get("home") or "").strip()
+    stops = payload.get("stops") or []
+
+    try:
+        # Keep using your Google-backed solver
+        from trip_mapper import build_route  # type: ignore
+        data = build_route(home, stops)
+
+        # Validate expected shape for the frontend
+        if not isinstance(data, dict) or "coordinates" not in data or "order" not in data:
+            raise ValueError("trip_mapper.build_route returned unexpected shape")
+
+        return jsonify(data)
+
+    except Exception as e:
+        # Important: return JSON, not a proxy 502, so GH Pages can show a useful message
+        app.logger.exception("build_route failed")
+        return jsonify({
+            "error": "route_failed",
+            "detail": str(e)
+        }), 500
 
 
 # ─────────────────────────────────────────────────────────

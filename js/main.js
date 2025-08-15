@@ -37,9 +37,11 @@ window.smoothScrollTo = window.smoothScrollTo || function smoothScrollTo(selecto
     try { window.scrollTo({ top: 0, left: 0, behavior: "auto" }); } catch {}
   });
 
-
-  // Ensure API_BASE exists for fetch calls
-  window.API_BASE = window.API_BASE || "";
+  // API base auto-detect: localhost -> local Flask, otherwise Render
+  (function setApiBase() {
+    const isLocal = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+    window.API_BASE = isLocal ? "" : "https://YOUR-RENDER-APP.onrender.com";
+  })();
 
   // ensure top on first load
   document.addEventListener("DOMContentLoaded", () => {

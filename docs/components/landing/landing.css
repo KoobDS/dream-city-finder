@@ -1,0 +1,59 @@
+div.landing-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Background video */
+div.landing-container video {
+    min-width: 100%;
+    min-height: 100%;
+}
+
+/* Logo, slogan, and "Get Started" button */
+div.landing-content {
+    height: auto;
+    width: 100%;
+    z-index: 2;
+    text-align: center;
+    position: absolute;
+    top: 27.5%;
+}
+div.landing-content h1,
+div.landing-content h2 {
+    margin: 0;
+    padding: 0;
+    color: #FFFFFF;
+    font-family: var(--font-primary);
+}
+div.landing-content h1 { font-size: 14vh; }
+div.landing-content h2 { font-size: 6vh; }
+div.landing-content button.primary {
+    font-size: 4vh;
+    margin-top: 3vh;
+    padding: 1vh 1vw 1vh 1vw;
+}
+
+/* Bobbing arrow */
+div.landing-container i {
+    width: 100%;
+    font-size: 6vh;
+    color: #FFFFFF;
+    margin: 0 0 2vh 0;
+    padding: 0;
+    text-align: center;
+    position: absolute;
+    bottom: 0;
+    z-index: 2;
+    animation: bob 1s ease-in infinite alternate;
+}
+div.landing-container i:hover {
+    cursor: pointer;
+}
+
+/* Responsive */
+@media only screen and (max-width: 767px) {
+    div.landing-content h1 { font-size: 11vh; }
+    div.landing-content h2 { font-size: 4.5vh; }
+}

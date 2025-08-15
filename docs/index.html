@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>CityFinder v2</title>
+    <meta charset="UTF-8">
+    <meta name="description" content="X">
+    <meta name="keywords" content="X">
+    <meta name="author" content="X">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" type="text/css" href="assets/fontawesome-6.5.2/css/all.min.css">
+    <link rel="stylesheet" type="text/css" href="css/global.css">
+
+<!-- keep main.js first in <head> -->
+<script src="js/main.js" defer></script>
+
+<!-- libs for the trip map -->
+<script src="https://unpkg.com/d3@7" defer></script>
+<script src="https://unpkg.com/topojson-client@3" defer></script>
+
+<!-- components -->
+<script src="components/landing/landing.js" defer></script>
+<script src="components/tools/tools.js" defer></script>
+
+<!-- IMPORTANT: data first, then suggestions, then preferences -->
+<script src="components/preferences/data.js" defer></script>
+<script src="components/suggestions/suggestions.js" defer></script>
+<script src="components/preferences/preferences.js" defer></script>
+
+<script src="components/footer/footer.js" defer></script>
+<script src="components/trip-planner/trip-planner.js" defer></script>
+
+  </head>
+
+  <body>
+    <landing-component></landing-component>
+    <tools-component></tools-component>
+    <suggestions-component></suggestions-component>
+    <footer-component></footer-component>
+  </body>
+</html>

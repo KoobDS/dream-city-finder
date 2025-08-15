@@ -1,0 +1,13 @@
+footer {
+    text-align: left;
+    background: #154977;
+    padding: 7px;
+    color: #DBE4EE;
+    border-top: 1px solid #0D1B2A;
+}
+
+a:link,
+a:visited {
+    color: #DBE4EE;
+    text-decoration: none;
+}

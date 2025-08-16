@@ -1,6 +1,6 @@
 # CityFinder v2
 
-An interactive web app that:
+An interactive web app with a [live site]([https://youtu.be/...](https://KoobDS.github.io/dream-city-finder)) that:
 
 - **Finds your dream city** — scores 3,000+ U.S. cities on dozens of lifestyle, economic, and climate factors using a custom algorithm built from reputable data.
 - **Plans the optimal route for your next trip** — solves the Traveling Salesman Problem using haversine + 2-opt, works with plain-text location names.

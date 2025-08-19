@@ -15,7 +15,6 @@ All datasets are current to Spring 2024 - full source list below.
 | What you’ll see | Link |
 |------|-----------------|
 | **Live site** | <https://KoobDS.github.io/dream-city-finder> |
-| **n-min walk-through** | [Demo video](https://youtu.be/...) |
 
 ---
 
